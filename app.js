@@ -10,6 +10,7 @@ const SUPABASE_ANON_KEY_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-config
 const BOOKING_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-booking`;
 const INTERNAL_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-internal`;
 const MAPS_URL = 'https://maps.app.goo.gl/x4sgYuXCZhRhZHGK7?g_st=ac';
+const APP_BASE_URL = 'https://kira0888.github.io/kira-ceo-brooklyn/';
 
 // ============================================================
 // State Management
@@ -104,6 +105,14 @@ function setupAuthStateListener() {
         appState.currentUser = session?.user || null;
         updateUserInfo();
         updateNavigationByRole();
+
+        if (event === 'PASSWORD_RECOVERY') {
+            appState.currentSession = session;
+            appState.currentUser = session?.user || null;
+            updateUserInfo();
+            navigateTo('redefinir-senha');
+            return;
+        }
 
         if (event === 'SIGNED_OUT') {
             appState.workspaceData = null;
@@ -255,6 +264,9 @@ function renderPage(page) {
     }
 
     switch(page) {
+        case 'redefinir-senha':
+            renderPasswordUpdateForm();
+            break;
         case 'home':
             renderHomePage();
             break;
@@ -918,6 +930,10 @@ function renderLoginForm() {
                     <button class="button button-secondary" id="signup-toggle" style="width: 100%;">Criar conta</button>
                 </div>
 
+                <div style="text-align: center; margin-top: 0.5rem;">
+                    <button class="button button-secondary" id="forgot-password-btn" style="width: 100%;">Esqueci minha senha</button>
+                </div>
+
                 <div id="auth-message" style="margin-top: 1rem;"></div>
             </div>
         </div>
@@ -925,6 +941,125 @@ function renderLoginForm() {
 
     document.getElementById('login-btn').addEventListener('click', handleLogin);
     document.getElementById('signup-toggle').addEventListener('click', () => showSignupForm());
+    document.getElementById('forgot-password-btn').addEventListener('click', () => showPasswordResetRequestForm());
+}
+
+function showPasswordResetRequestForm() {
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card" style="max-width: 400px; margin: 2rem auto;">
+                <div class="card-title" style="text-align: center; margin-bottom: 1.5rem;">Redefinir senha</div>
+                <p style="color:#666; margin-bottom:1rem;">Informe o e-mail da sua conta. Enviaremos um link seguro para criar uma nova senha.</p>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="reset-email" placeholder="seu@email.com">
+                </div>
+                <button class="button button-primary" id="send-reset-btn" style="width:100%;">Enviar link de recuperação</button>
+                <div style="text-align:center; margin-top:0.75rem;">
+                    <button class="button button-secondary" id="reset-back-btn" style="width:100%;">Voltar ao login</button>
+                </div>
+                <div id="auth-message" style="margin-top:1rem;"></div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('send-reset-btn').addEventListener('click', handlePasswordResetRequest);
+    document.getElementById('reset-back-btn').addEventListener('click', () => renderLoginForm());
+}
+
+async function handlePasswordResetRequest() {
+    try {
+        const email = document.getElementById('reset-email').value.trim();
+        if (!email) {
+            showMessage('Digite seu e-mail', 'error');
+            return;
+        }
+
+        const { error } = await appState.supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: `${APP_BASE_URL}#redefinir-senha`
+        });
+
+        if (error) throw error;
+        showMessage('Link de recuperação enviado. Confira seu e-mail.', 'success');
+    } catch (error) {
+        console.error('Password reset request error:', error);
+        showMessage('Erro ao enviar recuperação: ' + error.message, 'error');
+    }
+}
+
+function renderPasswordUpdateForm() {
+    const content = document.getElementById('content');
+    updateTopbar('Nova senha', 'Recuperação de acesso');
+
+    if (!appState.currentSession) {
+        content.innerHTML = `
+            <div class="content-inner">
+                <div class="card" style="max-width:400px; margin:2rem auto;">
+                    <div class="card-title">Link de recuperação inválido ou expirado</div>
+                    <p style="color:#666; margin-bottom:1rem;">Solicite um novo link de recuperação.</p>
+                    <button class="button button-primary" onclick="showPasswordResetRequestForm()" style="width:100%;">Solicitar novo link</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card" style="max-width:400px; margin:2rem auto;">
+                <div class="card-title" style="text-align:center; margin-bottom:1.5rem;">Criar nova senha</div>
+                <div class="form-group">
+                    <label>Nova senha</label>
+                    <input type="password" id="new-password" placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label>Confirmar nova senha</label>
+                    <input type="password" id="new-password-confirm" placeholder="••••••••">
+                </div>
+                <button class="button button-primary" id="update-password-btn" style="width:100%;">Salvar nova senha</button>
+                <div id="auth-message" style="margin-top:1rem;"></div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('update-password-btn').addEventListener('click', handlePasswordUpdate);
+}
+
+async function handlePasswordUpdate() {
+    try {
+        const password = document.getElementById('new-password').value;
+        const confirm = document.getElementById('new-password-confirm').value;
+
+        if (!password || !confirm) {
+            showMessage('Preencha os dois campos', 'error');
+            return;
+        }
+        if (password !== confirm) {
+            showMessage('As senhas não correspondem', 'error');
+            return;
+        }
+        if (password.length < 8) {
+            showMessage('Use uma senha com pelo menos 8 caracteres', 'error');
+            return;
+        }
+
+        const { error } = await appState.supabaseClient.auth.updateUser({ password });
+        if (error) throw error;
+
+        await appState.supabaseClient.auth.signOut();
+        appState.currentSession = null;
+        appState.currentUser = null;
+        appState.workspaceData = null;
+        appState.userRole = null;
+        updateUserInfo();
+        updateNavigationByRole();
+        showAlert('Senha alterada. Entre novamente com a nova senha.', 'success');
+        setTimeout(() => navigateTo('acesso-interno'), 800);
+    } catch (error) {
+        console.error('Password update error:', error);
+        showMessage('Erro ao atualizar senha: ' + error.message, 'error');
+    }
 }
 
 function showSignupForm() {
