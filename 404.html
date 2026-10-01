@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página não encontrada — Kira-CEO Brooklyn</title>
+  <link rel="stylesheet" href="./styles.css">
+  <style>body{display:flex;align-items:center;justify-content:center;min-height:100vh}.error-container{max-width:480px;text-align:center;padding:2rem}.error-container h1{font-size:3rem}.error-container a{margin-top:1rem}</style>
+</head>
+<body>
+  <div class="error-container">
+    <h1>404</h1>
+    <p>Página não encontrada.</p>
+    <a class="button button-primary" href="./index.html">Voltar ao início</a>
+  </div>
+  <script>
+    const base = '/kira-ceo-brooklyn/';
+    const path = window.location.pathname;
+    if (path.startsWith(base) && path !== base && !path.split('/').pop().includes('.')) {
+      const route = path.slice(base.length).replace(/^\/+|\/+$/g, '');
+      window.location.replace(base + 'index.html' + (route ? '#' + encodeURIComponent(route) : '') + window.location.search);
+    }
+  </script>
+</body>
+</html>

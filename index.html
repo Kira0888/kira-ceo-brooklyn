@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kira-CEO Brooklyn — sistema de gestão da Barbearia Brooklyn">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>Kira-CEO Brooklyn</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">KIRA-CEO</div>
+        <div class="sidebar-subtitle">Brooklyn</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#home" class="nav-item active" data-page="home">Início</a>
+        <a href="#agendamento" class="nav-item" data-page="agendamento">Agendamento</a>
+        <a href="#agenda" class="nav-item" data-page="agenda">Agenda</a>
+        <a href="#financeiro" class="nav-item" data-page="financeiro">Financeiro</a>
+        <a href="#relatorios" class="nav-item" data-page="relatorios">Relatórios</a>
+        <a href="#configuracoes" class="nav-item" data-page="configuracoes" id="nav-configuracoes" style="display:none">Configurações</a>
+        <a href="#localizacao" class="nav-item" data-page="localizacao">Localização</a>
+        <a href="#acesso-interno" class="nav-item" data-page="acesso-interno">Acesso interno</a>
+      </nav>
+      <div class="sidebar-footer"><div class="user-info" id="user-info">Não autenticado</div></div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div><div class="topbar-title">Início</div><div class="topbar-status">Kira-CEO Brooklyn</div></div>
+        <button id="mobile-menu-toggle" aria-label="Abrir menu" style="display:none;background:none;border:0;font-size:1.5rem;cursor:pointer">≡</button>
+      </header>
+      <main class="content"><div id="content"></div></main>
+    </div>
+  </div>
+
+  <div id="alerts-container"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3"></script>
+  <script src="./app.js"></script>
+  <script>
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const syncMobileMenu = () => {
+      const mobile = window.innerWidth <= 768;
+      mobileMenuToggle.style.display = mobile ? 'block' : 'none';
+      if (!mobile) sidebar.classList.remove('mobile-open');
+    };
+    mobileMenuToggle.addEventListener('click', () => sidebar.classList.toggle('mobile-open'));
+    window.addEventListener('resize', syncMobileMenu);
+    syncMobileMenu();
+  </script>
+</body>
+</html>
