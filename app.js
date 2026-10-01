@@ -12,6 +12,22 @@ const INTERNAL_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-internal`;
 const MAPS_URL = 'https://maps.app.goo.gl/x4sgYuXCZhRhZHGK7?g_st=ac';
 const APP_BASE_URL = 'https://kira0888.github.io/kira-ceo-brooklyn/';
 
+const INITIAL_AUTH_HASH = window.location.hash;
+const INITIAL_PASSWORD_RECOVERY =
+    new URLSearchParams(INITIAL_AUTH_HASH.replace(/^#/, '')).get('type') === 'recovery';
+
+const KNOWN_ROUTES = new Set([
+    'home',
+    'agendamento',
+    'agenda',
+    'financeiro',
+    'relatorios',
+    'configuracoes',
+    'localizacao',
+    'acesso-interno',
+    'redefinir-senha'
+]);
+
 // ============================================================
 // State Management
 // ============================================================
@@ -34,6 +50,7 @@ let appState = {
     },
     workspaceData: null,
     userRole: null,
+    passwordRecoveryMode: INITIAL_PASSWORD_RECOVERY,
     services: [],
     professionals: []
 };
@@ -63,14 +80,30 @@ async function initializeApp() {
         // Setup navigation
         setupNavigation();
         
-        // Route to appropriate page
-        const hash = window.location.hash.slice(1) || 'home';
-        navigateTo(hash);
+        // Recovery links return session data inside the URL hash.
+        // Never interpret Supabase auth tokens as an application route.
+        const initialRoute = window.location.hash.slice(1);
 
-        // Listen for hash changes
+        if (appState.passwordRecoveryMode && appState.currentSession) {
+            navigateTo('redefinir-senha');
+        } else {
+            navigateTo(KNOWN_ROUTES.has(initialRoute) ? initialRoute : 'home');
+        }
+
         window.addEventListener('hashchange', () => {
             const hash = window.location.hash.slice(1);
-            navigateTo(hash);
+
+            if (
+                hash.includes('access_token=') ||
+                hash.includes('refresh_token=') ||
+                hash.includes('type=recovery')
+            ) {
+                return;
+            }
+
+            if (KNOWN_ROUTES.has(hash)) {
+                navigateTo(hash);
+            }
         });
     } catch (error) {
         console.error('Initialization error:', error);
@@ -89,7 +122,14 @@ async function loadSupabaseConfig() {
         const { createClient } = window.supabase;
         appState.supabaseClient = createClient(
             appState.supabaseConfig.url,
-            appState.supabaseConfig.key
+            appState.supabaseConfig.key,
+            {
+                auth: {
+                    detectSessionInUrl: true,
+                    persistSession: true,
+                    flowType: 'implicit'
+                }
+            }
         );
     } catch (error) {
         console.error('Config load error:', error);
@@ -107,9 +147,13 @@ function setupAuthStateListener() {
         updateNavigationByRole();
 
         if (event === 'PASSWORD_RECOVERY') {
+            appState.passwordRecoveryMode = true;
             appState.currentSession = session;
             appState.currentUser = session?.user || null;
+            appState.workspaceData = null;
+            appState.userRole = null;
             updateUserInfo();
+            updateNavigationByRole();
             navigateTo('redefinir-senha');
             return;
         }
@@ -123,6 +167,11 @@ function setupAuthStateListener() {
         }
 
         if (event === 'SIGNED_IN') {
+            if (appState.passwordRecoveryMode) {
+                navigateTo('redefinir-senha');
+                return;
+            }
+
             loadWorkspaceData().then(() => {
                 updateNavigationByRole();
                 if (!appState.userRole && appState.currentPage === 'acesso-interno') {
@@ -148,8 +197,14 @@ async function checkSession() {
         appState.currentSession = session;
         appState.currentUser = session?.user || null;
 
-        if (session) await loadWorkspaceData();
-        else {
+        if (session) {
+            if (appState.passwordRecoveryMode) {
+                appState.workspaceData = null;
+                appState.userRole = null;
+            } else {
+                await loadWorkspaceData();
+            }
+        } else {
             appState.workspaceData = null;
             appState.userRole = null;
         }
@@ -977,7 +1032,7 @@ async function handlePasswordResetRequest() {
         }
 
         const { error } = await appState.supabaseClient.auth.resetPasswordForEmail(email, {
-            redirectTo: `${APP_BASE_URL}#redefinir-senha`
+            redirectTo: APP_BASE_URL
         });
 
         if (error) throw error;
@@ -1047,6 +1102,7 @@ async function handlePasswordUpdate() {
         const { error } = await appState.supabaseClient.auth.updateUser({ password });
         if (error) throw error;
 
+        appState.passwordRecoveryMode = false;
         await appState.supabaseClient.auth.signOut();
         appState.currentSession = null;
         appState.currentUser = null;
@@ -1204,7 +1260,10 @@ async function handleSignup() {
 
         const { data, error } = await appState.supabaseClient.auth.signUp({
             email,
-            password
+            password,
+            options: {
+                emailRedirectTo: APP_BASE_URL
+            }
         });
 
         if (error) throw error;
