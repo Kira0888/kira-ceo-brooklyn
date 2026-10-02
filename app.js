@@ -402,6 +402,7 @@ function renderPage(page) {
 
 // BROOKLYN_PRO_UI_V4
 // BROOKLYN_VISUAL_REFINE_V6
+// BROOKLYN_HOME_EDITORIAL_V12
 function renderHomePage() {
     if (appState.currentUser && appState.userRole) {
         renderOwnerDashboardPage();
@@ -412,112 +413,113 @@ function renderHomePage() {
     updateTopbar('Início', 'Barbearia Brooklyn · QS 121');
 
     content.innerHTML = `
-        <div class="content-inner brooklyn-public brooklyn-public-v6">
-            <section class="public-hero public-hero-v6" aria-label="Barbearia Brooklyn">
-                <div class="public-hero-photo">
+        <div class="content-inner brooklyn-public brooklyn-home-v12">
+            <section class="brooklyn-hero-v12" aria-label="Barbearia Brooklyn">
+                <figure class="brooklyn-hero-photo-v12">
                     <img src="./assets/brooklyn-hero.jpg" alt="Barbeiro realizando um corte">
-                    <div class="public-hero-photo-overlay"></div>
+                    <div class="brooklyn-photo-shade-v12"></div>
 
-                    <div class="photo-brand">
-                        <span class="photo-crown">♛</span>
+                    <div class="brooklyn-photo-brand-v12">
+                        <span class="brooklyn-photo-mark-v12">♛</span>
                         <div>
-                            <strong>BARBEARIA</strong>
-                            <span>BROOKLYN</span>
+                            <small>BARBEARIA</small>
+                            <strong>BROOKLYN</strong>
                         </div>
                     </div>
 
-                    <div class="photo-location">
-                        <span>UNIDADE</span>
+                    <div class="brooklyn-photo-unit-v12">
+                        <small>UNIDADE</small>
                         <strong>QS 121</strong>
-                        <small>Samambaia · Brasília/DF</small>
+                        <span>Samambaia · Brasília/DF</span>
                     </div>
-                </div>
+                </figure>
 
-                <div class="public-hero-copy public-hero-copy-v6">
-                    <div class="hero-mini-nav">
-                        <span>BROOKLYN / 121</span>
-                        <span class="hero-mini-dot"></span>
+                <div class="brooklyn-hero-copy-v12">
+                    <div class="brooklyn-hero-meta-v12">
+                        <span>BROOKLYN / QS 121</span>
                         <span>KIRA-CEO</span>
                     </div>
 
-                    <div class="hero-copy-main">
-                        <span class="hero-eyebrow">AGENDAMENTO DIGITAL</span>
-                        <h1 class="hero-title-v6">
+                    <div class="brooklyn-hero-main-v12">
+                        <span class="brooklyn-kicker-v12">AGENDAMENTO DIGITAL</span>
+
+                        <h1>
                             <span>SEU HORÁRIO.</span>
                             <span>SEU CORTE.</span>
                             <em>BROOKLYN.</em>
                         </h1>
+
                         <p>
                             Agende seu atendimento na unidade QS 121 com uma experiência direta,
-                            elegante e preparada para funcionar bem no celular e no desktop.
+                            clara e pensada para funcionar bem em qualquer tela.
                         </p>
 
-                        <div class="hero-cta-row">
+                        <div class="brooklyn-actions-v12">
                             <a href="#agendamento" class="editorial-cta">
                                 <span>AGENDAR AGORA</span>
                                 <b>↗</b>
                             </a>
 
-                            <a href="#localizacao" class="editorial-ghost-link">COMO CHEGAR</a>
+                            <a href="#localizacao" class="editorial-ghost-link">
+                                COMO CHEGAR <span>↗</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="brooklyn-hero-foot-v12">
+                        <div>
+                            <small>UNIDADE</small>
+                            <strong>QS 121</strong>
+                        </div>
+                        <div>
+                            <small>REGIÃO</small>
+                            <strong>SAMAMBAIA</strong>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section class="brooklyn-story-v6" aria-label="Apresentação da unidade">
-                <article class="story-card story-card-number">
-                    <span class="story-kicker">UNIDADE / OPERAÇÃO</span>
-                    <div class="story-number-wrap">
-                        <strong>121</strong>
-                        <small>QS 121 · Samambaia</small>
-                    </div>
-                </article>
+            <section class="brooklyn-editorial-v12" aria-label="Experiência Brooklyn">
+                <div class="brooklyn-editorial-heading-v12">
+                    <span class="brooklyn-kicker-v12">BROOKLYN / EXPERIÊNCIA</span>
+                    <h2>A EXPERIÊNCIA COMEÇA <em>ANTES DA CADEIRA.</em></h2>
+                </div>
 
-                <article class="story-card">
-                    <span class="story-kicker">APRESENTAÇÃO</span>
-                    <h2>Uma estética mais sólida para valorizar a marca.</h2>
+                <div class="brooklyn-editorial-copy-v12">
                     <p>
-                        A proposta visual combina preto profundo, dourado editorial e uma
-                        navegação mais premium para causar boa impressão ao apresentar o sistema.
+                        Menos ruído, menos etapas e uma presença visual que acompanha a identidade
+                        da Brooklyn sem parecer um template de software.
                     </p>
-                </article>
 
-                <article class="story-card story-card-list">
-                    <span class="story-kicker">DESTAQUES</span>
-                    <ul>
-                        <li>Agendamento online com experiência melhor no mobile</li>
-                        <li>Acesso interno para gestão, agenda, caixa e relatórios</li>
-                        <li>Direção visual alinhada à presença digital da Brooklyn</li>
-                    </ul>
-                </article>
-            </section>
-
-            <section class="public-services-v6" aria-label="Resumo do sistema">
-                <div class="services-v6-head">
-                    <span class="story-kicker">GESTÃO BROOKLYN</span>
-                    <h2>Da reserva ao fechamento do dia.</h2>
-                </div>
-
-                <div class="services-v6-grid">
-                    <article>
-                        <span>01</span>
-                        <strong>Agendamento</strong>
-                        <p>Cliente escolhe serviço, profissional, data e horário disponível.</p>
-                    </article>
-                    <article>
-                        <span>02</span>
-                        <strong>Agenda</strong>
-                        <p>Controle diário de status, execução dos atendimentos e fluxo da unidade.</p>
-                    </article>
-                    <article>
-                        <span>03</span>
-                        <strong>Financeiro</strong>
-                        <p>Comandas, caixa, repasses, devoluções e visão operacional do dia.</p>
-                    </article>
+                    <div class="brooklyn-editorial-lines-v12">
+                        <div>
+                            <span>01</span>
+                            <strong>AGENDAMENTO</strong>
+                            <small>Serviço, profissional, data e horário em uma jornada objetiva.</small>
+                        </div>
+                        <div>
+                            <span>02</span>
+                            <strong>LOCALIZAÇÃO</strong>
+                            <small>Rota da unidade QS 121 acessível sem quebrar a experiência.</small>
+                        </div>
+                        <div>
+                            <span>03</span>
+                            <strong>GESTÃO</strong>
+                            <small>Área interna separada da experiência pública do cliente.</small>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <footer class="public-footer">
+            <section class="brooklyn-signature-v12" aria-label="Identidade Brooklyn">
+                <div>
+                    <span>QS 121</span>
+                    <strong>SAMAMBAIA · BRASÍLIA/DF</strong>
+                </div>
+                <p>BARBEARIA BROOKLYN</p>
+            </section>
+
+            <footer class="public-footer brooklyn-footer-v12">
                 <a href="#acesso-interno" class="public-staff-link">ÁREA DA EQUIPE ↗</a>
                 <span>GESTÃO DIGITAL KIRA-CEO</span>
             </footer>

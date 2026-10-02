@@ -3168,3 +3168,640 @@ body.public-shell .main-content {
         min-height: 380px;
     }
 }
+
+
+/* BROOKLYN HOME EDITORIAL V12 */
+
+body.public-shell,
+body.public-shell .main-content,
+body.public-shell .content,
+body.public-shell .content-inner,
+.brooklyn-home-v12 {
+    background: #080808 !important;
+}
+
+body.public-shell .content {
+    padding: clamp(.75rem, 1.8vw, 1.75rem) !important;
+    overflow-x: clip;
+}
+
+body.public-shell .content-inner {
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+.editorial-cta,
+.editorial-cta:visited {
+    color: #0b0b0a !important;
+    background: #d1aa5b;
+    border-color: #d1aa5b;
+    text-decoration: none;
+}
+
+.editorial-cta:hover,
+.editorial-cta:focus-visible {
+    color: #080808 !important;
+    background: #e0bd70;
+    border-color: #e0bd70;
+    outline: none;
+}
+
+.editorial-cta:active {
+    color: #080808 !important;
+    background: #c79d49;
+}
+
+.editorial-ghost-link,
+.editorial-ghost-link:visited {
+    color: #d8d0c3 !important;
+    text-decoration: none;
+}
+
+.editorial-ghost-link:hover,
+.editorial-ghost-link:focus-visible {
+    color: #d1aa5b !important;
+    outline: none;
+}
+
+.editorial-ghost-link:active {
+    color: #b98f43 !important;
+}
+
+.public-staff-link,
+.public-staff-link:visited {
+    color: #8f887c !important;
+}
+
+.public-staff-link:hover,
+.public-staff-link:focus-visible {
+    color: #d1aa5b !important;
+    outline: none;
+}
+
+.ops-action-primary,
+.ops-action-primary:visited {
+    color: #0a0a09 !important;
+}
+
+.ops-action-link,
+.ops-action-link:visited,
+.booking-back,
+.booking-back:visited {
+    color: #c7c0b5 !important;
+}
+
+.ops-action-link:hover,
+.ops-action-link:focus-visible,
+.booking-back:hover,
+.booking-back:focus-visible {
+    color: #d1aa5b !important;
+}
+
+.brooklyn-hero-v12 {
+    width: 100%;
+    min-height: min(710px, calc(100svh - 2.5rem));
+    display: grid;
+    grid-template-columns: minmax(0, 58%) minmax(0, 42%);
+    background: #0b0b0a;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 90px rgba(0,0,0,.28);
+}
+
+.brooklyn-hero-photo-v12 {
+    min-width: 0;
+    min-height: 100%;
+    margin: 0;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.brooklyn-hero-photo-v12 img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 51% 50%;
+    filter: sepia(.68) saturate(.72) contrast(1.06) brightness(.73);
+    transform: scale(1.01);
+}
+
+.brooklyn-photo-shade-v12 {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        linear-gradient(90deg, rgba(0,0,0,.06), rgba(0,0,0,.08)),
+        linear-gradient(0deg, rgba(5,5,5,.76) 0%, rgba(5,5,5,.08) 43%, rgba(5,5,5,.08) 100%);
+    pointer-events: none;
+}
+
+.brooklyn-photo-brand-v12,
+.brooklyn-photo-unit-v12 {
+    position: absolute;
+    z-index: 2;
+}
+
+.brooklyn-photo-brand-v12 {
+    top: clamp(1.25rem, 2.5vw, 2.25rem);
+    left: clamp(1.25rem, 2.5vw, 2.25rem);
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    color: #eee8da;
+}
+
+.brooklyn-photo-mark-v12 {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(209,170,91,.55);
+    color: #d1aa5b;
+    font-size: 1rem;
+}
+
+.brooklyn-photo-brand-v12 div {
+    display: grid;
+    gap: .18rem;
+}
+
+.brooklyn-photo-brand-v12 small,
+.brooklyn-photo-unit-v12 small {
+    font-size: .56rem;
+    letter-spacing: .21em;
+    color: #c7b991;
+}
+
+.brooklyn-photo-brand-v12 strong {
+    font-size: .78rem;
+    letter-spacing: .18em;
+}
+
+.brooklyn-photo-unit-v12 {
+    left: clamp(1.35rem, 3vw, 2.65rem);
+    bottom: clamp(1.4rem, 3vw, 2.65rem);
+    display: grid;
+    color: #eee8da;
+}
+
+.brooklyn-photo-unit-v12 strong {
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: clamp(2.3rem, 4.1vw, 4.15rem);
+    line-height: .92;
+    margin: .22rem 0 .45rem;
+    letter-spacing: -.045em;
+}
+
+.brooklyn-photo-unit-v12 span {
+    color: #c2b7a5;
+    font-size: .76rem;
+}
+
+.brooklyn-hero-copy-v12 {
+    min-width: 0;
+    padding: clamp(1.65rem, 3.5vw, 3.5rem);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 1.4rem;
+    background: #0b0b0a;
+}
+
+.brooklyn-hero-meta-v12 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: #716c63;
+    font-size: .56rem;
+    font-weight: 700;
+    letter-spacing: .18em;
+    white-space: nowrap;
+}
+
+.brooklyn-hero-main-v12 {
+    align-self: center;
+    min-width: 0;
+    padding: 1rem 0;
+}
+
+.brooklyn-kicker-v12 {
+    display: inline-block;
+    color: #d1aa5b;
+    font-size: .62rem;
+    font-weight: 800;
+    letter-spacing: .23em;
+    margin-bottom: 1.15rem;
+}
+
+.brooklyn-hero-main-v12 h1 {
+    margin: 0;
+    display: grid;
+    gap: .06em;
+    width: min-content;
+    max-width: 100%;
+    color: #eee8da;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-weight: 800;
+    font-size: clamp(3.2rem, 4.15vw, 5.2rem);
+    line-height: .88;
+    letter-spacing: -.045em;
+    text-transform: uppercase;
+}
+
+.brooklyn-hero-main-v12 h1 span,
+.brooklyn-hero-main-v12 h1 em {
+    display: block;
+    white-space: nowrap;
+}
+
+.brooklyn-hero-main-v12 h1 em {
+    color: #d1aa5b;
+    font-style: normal;
+}
+
+.brooklyn-hero-main-v12 > p {
+    max-width: 36ch;
+    margin: 1.45rem 0 0;
+    color: #a39c90;
+    font-size: clamp(.88rem, 1vw, .98rem);
+    line-height: 1.7;
+}
+
+.brooklyn-actions-v12 {
+    display: flex;
+    align-items: center;
+    gap: 1.15rem;
+    margin-top: 1.65rem;
+    flex-wrap: wrap;
+}
+
+.brooklyn-actions-v12 .editorial-cta {
+    min-width: 190px;
+    min-height: 48px;
+    padding: .9rem 1rem;
+}
+
+.editorial-ghost-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    min-height: 44px;
+    padding: .5rem .1rem;
+    border-bottom: 1px solid rgba(216,208,195,.32);
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    transition: color .18s ease, border-color .18s ease;
+}
+
+.editorial-ghost-link:hover {
+    border-color: #d1aa5b;
+}
+
+.brooklyn-hero-foot-v12 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(209,170,91,.18);
+}
+
+.brooklyn-hero-foot-v12 div {
+    display: grid;
+    gap: .25rem;
+}
+
+.brooklyn-hero-foot-v12 small {
+    color: #625e57;
+    font-size: .53rem;
+    letter-spacing: .16em;
+}
+
+.brooklyn-hero-foot-v12 strong {
+    color: #cfc7ba;
+    font-size: .68rem;
+    letter-spacing: .09em;
+}
+
+.brooklyn-editorial-v12 {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    padding: clamp(4rem, 8vw, 7rem) clamp(1rem, 5vw, 4.5rem);
+    background: #080808;
+    border-bottom: 1px solid #1d1c19;
+}
+
+.brooklyn-editorial-heading-v12 {
+    min-width: 0;
+    align-self: start;
+}
+
+.brooklyn-editorial-heading-v12 h2 {
+    margin: 0;
+    max-width: 11ch;
+    color: #eee8da;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: clamp(2.8rem, 5.15vw, 5.8rem);
+    font-weight: 800;
+    line-height: .9;
+    letter-spacing: -.045em;
+}
+
+.brooklyn-editorial-heading-v12 h2 em {
+    display: block;
+    color: #d1aa5b;
+    font-style: normal;
+}
+
+.brooklyn-editorial-copy-v12 {
+    min-width: 0;
+    align-self: end;
+    padding-top: clamp(1rem, 5vw, 4rem);
+}
+
+.brooklyn-editorial-copy-v12 > p {
+    max-width: 46ch;
+    margin: 0 0 2.2rem;
+    color: #aaa297;
+    font-size: clamp(1rem, 1.35vw, 1.18rem);
+    line-height: 1.75;
+}
+
+.brooklyn-editorial-lines-v12 {
+    border-top: 1px solid #2a2823;
+}
+
+.brooklyn-editorial-lines-v12 > div {
+    display: grid;
+    grid-template-columns: 48px 150px minmax(0,1fr);
+    gap: 1rem;
+    align-items: center;
+    min-height: 82px;
+    padding: .9rem 0;
+    border-bottom: 1px solid #2a2823;
+}
+
+.brooklyn-editorial-lines-v12 span {
+    color: #d1aa5b;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: .76rem;
+}
+
+.brooklyn-editorial-lines-v12 strong {
+    color: #e6dfd3;
+    font-size: .72rem;
+    letter-spacing: .11em;
+}
+
+.brooklyn-editorial-lines-v12 small {
+    color: #817b72;
+    line-height: 1.55;
+}
+
+.brooklyn-signature-v12 {
+    min-height: 170px;
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: clamp(2rem, 4vw, 3.8rem) clamp(1rem, 5vw, 4.5rem);
+    background: #0c0c0b;
+    border-bottom: 1px solid #1d1c19;
+}
+
+.brooklyn-signature-v12 div {
+    display: grid;
+    gap: .35rem;
+}
+
+.brooklyn-signature-v12 span {
+    color: #d1aa5b;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: clamp(2.4rem, 4.5vw, 4.8rem);
+    line-height: .9;
+    letter-spacing: -.04em;
+}
+
+.brooklyn-signature-v12 strong {
+    color: #8d867b;
+    font-size: .62rem;
+    letter-spacing: .16em;
+}
+
+.brooklyn-signature-v12 p {
+    margin: 0;
+    color: #eee8da;
+    font-size: .7rem;
+    letter-spacing: .24em;
+    text-align: right;
+}
+
+.brooklyn-footer-v12 {
+    background: #080808;
+    border-top: 0 !important;
+}
+
+@media (max-width: 1180px) {
+    .brooklyn-hero-v12 {
+        grid-template-columns: minmax(0, 55%) minmax(0, 45%);
+    }
+
+    .brooklyn-hero-copy-v12 {
+        padding: clamp(1.4rem, 3vw, 2.4rem);
+    }
+
+    .brooklyn-hero-main-v12 h1 {
+        font-size: clamp(3rem, 4.45vw, 4.25rem);
+    }
+
+    .brooklyn-editorial-lines-v12 > div {
+        grid-template-columns: 42px 125px minmax(0,1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    body.public-shell .content {
+        padding: 0 !important;
+    }
+
+    .brooklyn-hero-v12 {
+        grid-template-columns: 1fr;
+        min-height: 0;
+        box-shadow: none;
+    }
+
+    .brooklyn-hero-photo-v12 {
+        min-height: clamp(300px, 46svh, 430px);
+    }
+
+    .brooklyn-hero-photo-v12 img {
+        object-position: 52% 48%;
+    }
+
+    .brooklyn-hero-copy-v12 {
+        padding: 1.5rem clamp(1rem, 5vw, 2rem) 1.7rem;
+        gap: 1.25rem;
+    }
+
+    .brooklyn-hero-main-v12 {
+        padding: 1.2rem 0 .6rem;
+    }
+
+    .brooklyn-hero-main-v12 h1 {
+        font-size: clamp(3rem, 9vw, 5rem);
+    }
+
+    .brooklyn-editorial-v12 {
+        grid-template-columns: 1fr;
+        gap: 2.2rem;
+    }
+
+    .brooklyn-editorial-copy-v12 {
+        padding-top: 0;
+    }
+}
+
+@media (max-width: 430px) {
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: clip;
+    }
+
+    .brooklyn-hero-photo-v12 {
+        min-height: 310px;
+        max-height: 340px;
+    }
+
+    .brooklyn-photo-brand-v12 {
+        top: 1rem;
+        left: 1rem;
+    }
+
+    .brooklyn-photo-unit-v12 {
+        left: 1rem;
+        bottom: 1rem;
+    }
+
+    .brooklyn-photo-unit-v12 strong {
+        font-size: 2.45rem;
+    }
+
+    .brooklyn-hero-copy-v12 {
+        padding: 1.2rem 1rem 1.35rem;
+    }
+
+    .brooklyn-hero-meta-v12 {
+        font-size: .5rem;
+        gap: .5rem;
+    }
+
+    .brooklyn-kicker-v12 {
+        margin-bottom: .9rem;
+    }
+
+    .brooklyn-hero-main-v12 h1 {
+        font-size: clamp(2.55rem, 12.4vw, 3.4rem);
+        line-height: .9;
+        letter-spacing: -.04em;
+    }
+
+    .brooklyn-hero-main-v12 > p {
+        margin-top: 1.1rem;
+        font-size: .9rem;
+        line-height: 1.62;
+    }
+
+    .brooklyn-actions-v12 {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .6rem;
+        margin-top: 1.25rem;
+    }
+
+    .brooklyn-actions-v12 .editorial-cta,
+    .brooklyn-actions-v12 .editorial-ghost-link {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .brooklyn-actions-v12 .editorial-ghost-link {
+        justify-content: space-between;
+        padding: .8rem 0;
+    }
+
+    .brooklyn-hero-foot-v12 {
+        gap: .6rem;
+    }
+
+    .brooklyn-editorial-v12 {
+        padding: 3.4rem 1rem;
+    }
+
+    .brooklyn-editorial-heading-v12 h2 {
+        font-size: clamp(2.5rem, 12vw, 3.35rem);
+    }
+
+    .brooklyn-editorial-copy-v12 > p {
+        font-size: .96rem;
+    }
+
+    .brooklyn-editorial-lines-v12 > div {
+        grid-template-columns: 36px minmax(0,1fr);
+        gap: .45rem .8rem;
+        align-items: start;
+        padding: 1rem 0;
+    }
+
+    .brooklyn-editorial-lines-v12 strong {
+        align-self: center;
+    }
+
+    .brooklyn-editorial-lines-v12 small {
+        grid-column: 2;
+    }
+
+    .brooklyn-signature-v12 {
+        min-height: 150px;
+        align-items: start;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+
+    .brooklyn-signature-v12 p {
+        text-align: left;
+    }
+}
+
+@media (max-width: 390px) {
+    .brooklyn-hero-main-v12 h1 {
+        font-size: clamp(2.45rem, 12vw, 3.1rem);
+    }
+}
+
+@media (max-width: 360px) {
+    .brooklyn-hero-main-v12 h1 {
+        font-size: 2.6rem;
+    }
+
+    .brooklyn-hero-meta-v12 {
+        white-space: normal;
+    }
+
+    .brooklyn-photo-brand-v12 strong {
+        font-size: .72rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .editorial-cta,
+    .editorial-ghost-link {
+        transition: none !important;
+    }
+}
