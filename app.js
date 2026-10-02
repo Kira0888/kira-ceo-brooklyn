@@ -1,3 +1,4 @@
+// KIRA_BOOKING_STATUS_V24_8
 // KIRA_BOOKING_PRESENTATION_V24_7
 // KIRA_ACCOUNT_LOGOUT_V24_5
 // Kira-CEO Brooklyn - Frontend Application
@@ -908,7 +909,23 @@ async function renderBookingManagement(booking) {
             timeZone: 'America/Sao_Paulo'
         });
 
+        const stateLabels = {
+            HELD: 'Em confirmação',
+            BOOKED: 'Agendado',
+            CONFIRMED: 'Confirmado',
+            IN_SERVICE: 'Em atendimento',
+            COMPLETED: 'Concluído',
+            NO_SHOW: 'Não compareceu',
+            CANCELLED: 'Cancelado',
+            BLOCKED: 'Bloqueado'
+        };
+        const stateLabel = stateLabels[appt.state] || appt.state || 'Situação indisponível';
         let html = `
+            ${booking.tenant === 'demo' ? `
+                <div class="demo-banner">
+                    MODO APRESENTAÇÃO — esta reserva não pertence à operação real
+                </div>
+            ` : ''}
             <div class="card">
                 <div class="card-title">Detalhes da reserva</div>
                 <table style="width: 100%; border-collapse: collapse;">
@@ -930,7 +947,7 @@ async function renderBookingManagement(booking) {
                     </tr>
                     <tr>
                         <td style="padding: 0.75rem 0;">Estado:</td>
-                        <td style="padding: 0.75rem 0;"><span class="badge badge-info">${sanitizeText(appt.state || '—')}</span></td>
+                        <td style="padding: 0.75rem 0;"><span class="booking-state-label" style="display:inline-flex;padding:0.35rem 0.7rem;background:#29251b;color:#e7c36c;border:1px solid #806a35;border-radius:4px;font-weight:600;">${sanitizeText(stateLabel)}</span></td>
                     </tr>
                 </table>
 
