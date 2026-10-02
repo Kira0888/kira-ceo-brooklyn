@@ -4922,3 +4922,59 @@ body.public-shell .content-inner {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+
+/* KIRA ACCESS HARDENING V21 */
+
+.internal-login-card {
+    max-width: 420px;
+    margin: 2rem auto;
+}
+
+.internal-login-head {
+    display: grid;
+    gap: .35rem;
+    margin-bottom: 1.6rem;
+}
+
+.internal-login-head > span {
+    color: #d1aa5b;
+    font-size: .56rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.internal-login-head .card-title {
+    margin: 0;
+}
+
+.internal-login-head p {
+    margin: 0;
+    color: #817b71;
+    font-size: .74rem;
+    line-height: 1.55;
+}
+
+.internal-login-actions {
+    margin-top: .55rem;
+}
+
+.internal-login-note {
+    display: grid;
+    gap: .25rem;
+    margin-top: 1rem;
+    padding: .85rem 1rem;
+    border-left: 2px solid rgba(209,170,91,.50);
+    background: rgba(209,170,91,.03);
+}
+
+.internal-login-note strong {
+    color: #d4c29f;
+    font-size: .68rem;
+}
+
+.internal-login-note span {
+    color: #777168;
+    font-size: .68rem;
+    line-height: 1.5;
+}

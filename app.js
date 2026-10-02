@@ -1360,43 +1360,77 @@ function renderAccessRecoveryState() {
     document.getElementById('logout-access-btn').addEventListener('click', handleLogout);
 }
 
+// KIRA_ACCESS_HARDENING_V21
 function renderLoginForm() {
     const content = document.getElementById('content');
+
     content.innerHTML = `
         <div class="content-inner">
-            <div class="card" style="max-width: 400px; margin: 2rem auto;">
-                <div class="card-title" style="text-align: center; margin-bottom: 2rem;">
-                    Kira-CEO Brooklyn
+            <div class="card internal-login-card">
+                <div class="internal-login-head">
+                    <span>ACESSO INTERNO</span>
+                    <div class="card-title">Kira-CEO Brooklyn</div>
+                    <p>Área restrita a contas autorizadas pela unidade.</p>
                 </div>
 
                 <div class="form-group">
                     <label>E-mail</label>
-                    <input type="email" id="login-email" placeholder="seu@email.com">
+                    <input
+                        type="email"
+                        id="login-email"
+                        autocomplete="username"
+                        placeholder="seu@email.com"
+                    >
                 </div>
 
                 <div class="form-group">
                     <label>Senha</label>
-                    <input type="password" id="login-password" placeholder="••••••••">
+                    <input
+                        type="password"
+                        id="login-password"
+                        autocomplete="current-password"
+                        placeholder="••••••••"
+                    >
                 </div>
 
-                <button class="button button-primary" id="login-btn" style="width: 100%;">Entrar</button>
+                <button
+                    class="button button-primary"
+                    id="login-btn"
+                    style="width:100%;"
+                >
+                    Entrar
+                </button>
 
-                <div style="text-align: center; margin-top: 1rem;">
-                    <button class="button button-secondary" id="signup-toggle" style="width: 100%;">Criar conta</button>
+                <div class="internal-login-actions">
+                    <button
+                        class="button button-secondary"
+                        id="forgot-password-btn"
+                        style="width:100%;"
+                    >
+                        Esqueci minha senha
+                    </button>
                 </div>
 
-                <div style="text-align: center; margin-top: 0.5rem;">
-                    <button class="button button-secondary" id="forgot-password-btn" style="width: 100%;">Esqueci minha senha</button>
+                <div class="internal-login-note">
+                    <strong>Conta nova?</strong>
+                    <span>
+                        O acesso é criado e autorizado pela administração.
+                        Não existe cadastro público para a área interna.
+                    </span>
                 </div>
 
-                <div id="auth-message" style="margin-top: 1rem;"></div>
+                <div id="auth-message" style="margin-top:1rem;"></div>
             </div>
         </div>
     `;
 
-    document.getElementById('login-btn').addEventListener('click', handleLogin);
-    document.getElementById('signup-toggle').addEventListener('click', () => showSignupForm());
-    document.getElementById('forgot-password-btn').addEventListener('click', () => showPasswordResetRequestForm());
+    document
+        .getElementById('login-btn')
+        .addEventListener('click', handleLogin);
+
+    document
+        .getElementById('forgot-password-btn')
+        .addEventListener('click', () => showPasswordResetRequestForm());
 }
 
 function showPasswordResetRequestForm() {
@@ -1494,8 +1528,8 @@ async function handlePasswordUpdate() {
             showMessage('As senhas não correspondem', 'error');
             return;
         }
-        if (password.length < 8) {
-            showMessage('Use uma senha com pelo menos 8 caracteres', 'error');
+        if (password.length < 12) {
+            showMessage('Use uma senha com pelo menos 12 caracteres', 'error');
             return;
         }
 
@@ -1516,45 +1550,6 @@ async function handlePasswordUpdate() {
         console.error('Password update error:', error);
         showMessage('Erro ao atualizar senha: ' + error.message, 'error');
     }
-}
-
-function showSignupForm() {
-    const content = document.getElementById('content');
-    content.innerHTML = `
-        <div class="content-inner">
-            <div class="card" style="max-width: 400px; margin: 2rem auto;">
-                <div class="card-title" style="text-align: center; margin-bottom: 2rem;">
-                    Criar conta
-                </div>
-
-                <div class="form-group">
-                    <label>E-mail</label>
-                    <input type="email" id="signup-email" placeholder="seu@email.com">
-                </div>
-
-                <div class="form-group">
-                    <label>Senha</label>
-                    <input type="password" id="signup-password" placeholder="••••••••">
-                </div>
-
-                <div class="form-group">
-                    <label>Confirmar senha</label>
-                    <input type="password" id="signup-password-confirm" placeholder="••••••••">
-                </div>
-
-                <button class="button button-primary" id="signup-btn" style="width: 100%;">Criar conta</button>
-
-                <div style="text-align: center; margin-top: 1rem;">
-                    <button class="button button-secondary" id="login-toggle" style="width: 100%;">Já tem conta?</button>
-                </div>
-
-                <div id="auth-message" style="margin-top: 1rem;"></div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('signup-btn').addEventListener('click', handleSignup);
-    document.getElementById('login-toggle').addEventListener('click', () => renderLoginForm());
 }
 
 async function handleLogin() {
@@ -1599,48 +1594,6 @@ function renderInitialOwnerActivation() {
 // BROOKLYN_OWNER_ACCESS_CLEANUP_V8
 // Fluxo legado de ativação removido.
 // O proprietário já possui membership OWNER persistente no banco.
-
-async function handleSignup() {
-    try {
-        const email = document.getElementById('signup-email').value.trim();
-        const password = document.getElementById('signup-password').value;
-        const passwordConfirm = document.getElementById('signup-password-confirm').value;
-
-        if (!email || !password || !passwordConfirm) {
-            showMessage('Preencha todos os campos', 'error');
-            return;
-        }
-
-        if (password !== passwordConfirm) {
-            showMessage('As senhas não correspondem', 'error');
-            return;
-        }
-
-        const { data, error } = await appState.supabaseClient.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: APP_BASE_URL
-            }
-        });
-
-        if (error) throw error;
-
-        if (data.session) {
-            appState.currentSession = data.session;
-            appState.currentUser = data.user;
-            updateUserInfo();
-            showAlert('Conta criada e sessão iniciada.', 'success');
-            setTimeout(() => renderAccessRecoveryState(), 800);
-        } else {
-            showAlert('Conta criada. Confirme seu e-mail para continuar.', 'success');
-            setTimeout(() => renderLoginForm(), 2000);
-        }
-    } catch (error) {
-        console.error('Signup error:', error);
-        showMessage('Erro ao criar conta: ' + error.message, 'error');
-    }
-}
 
 function renderLoggedInAuth() {
     const content = document.getElementById('content');
