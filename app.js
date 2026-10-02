@@ -1,3 +1,4 @@
+// KIRA_ACCOUNT_LOGOUT_V24_5
 // Kira-CEO Brooklyn - Frontend Application
 // GitHub Pages Static Frontend with Supabase Integration
 
@@ -285,6 +286,7 @@ async function performWorkspaceLoad(allowRefresh = true) {
             return false;
         }
 
+        const requestedAccessToken = appState.currentSession.access_token;
         const response = await fetch(`${INTERNAL_ENDPOINT}?mode=workspace`, {
             headers: {
                 'Authorization': `Bearer ${appState.currentSession.access_token}`,
@@ -312,7 +314,9 @@ async function performWorkspaceLoad(allowRefresh = true) {
             throw new Error(`Workspace HTTP ${response.status}`);
         }
 
-        appState.workspaceData = await response.json();
+        const workspace = await response.json();
+        if (appState.currentSession?.access_token !== requestedAccessToken) return false;
+        appState.workspaceData = workspace;
         appState.userRole = appState.workspaceData.role || null;
         updateNavigationByRole();
         updateUserInfo();
@@ -601,6 +605,8 @@ async function renderOwnerDashboardPage() {
             await loadWorkspaceData();
         }
 
+        if (appState.currentPage !== 'home' || !appState.currentUser) return;
+
         const ws = appState.workspaceData || {};
         const agenda = ws.agenda || [];
         const services = ws.services || [];
@@ -759,6 +765,7 @@ async function renderOwnerDashboardPage() {
         `;
     } catch (error) {
         console.error('Owner dashboard error:', error);
+        if (appState.currentPage !== 'home' || !appState.currentUser) return;
         content.innerHTML = `
             <div class="content-inner">
                 <div class="alert alert-error">
@@ -1520,6 +1527,7 @@ async function renderAuthPage() {
         `;
 
         const ok = await ensureWorkspaceAccess();
+        if (appState.currentPage !== 'acesso-interno' || !appState.currentUser) return;
         if (!ok) {
             renderAccessRecoveryState();
             return;
@@ -1851,33 +1859,51 @@ function renderLoggedInAuth() {
                 </div>
                 <p>Perfil: <strong>${sanitizeText(roleLabels[appState.userRole] || 'Equipe')}</strong></p>
                 <div class="button-group" style="margin-top:1rem;">
-                    <button class="button button-primary" id="dashboard-btn">Abrir gestão</button>
-                    <button class="button button-secondary" id="logout-btn">Sair</button>
+                    <button class="button button-primary" id="dashboard-btn"
+                        data-kira-action="navigateTo('home')">Abrir gestão</button>
+                    <button class="button button-secondary" id="logout-btn"
+                        data-kira-action="handleLogout()">Sair</button>
                 </div>
             </div>
         </div>
     `;
 
-    document.getElementById('dashboard-btn')
-        .addEventListener('click', () => navigateTo('home'));
-    document.getElementById('logout-btn')
-        .addEventListener('click', handleLogout);
 }
 
+let logoutRequestPending = false;
+
 async function handleLogout() {
+    if (logoutRequestPending) return;
+    logoutRequestPending = true;
+    const buttons = Array.from(document.querySelectorAll('#logout-btn, #logout-access-btn'));
+    buttons.forEach(button => {
+        button.disabled = true;
+        button.textContent = 'Saindo...';
+    });
+
     try {
-        await appState.supabaseClient.auth.signOut();
+        const { error } = await appState.supabaseClient.auth.signOut({ scope: 'local' });
+        if (error) throw error;
+
         appState.currentUser = null;
         appState.currentSession = null;
         appState.workspaceData = null;
         appState.userRole = null;
+        appState.passwordRecoveryMode = false;
         updateNavigationByRole();
         updateUserInfo();
-        showAlert('Até logo!', 'success');
-        setTimeout(() => navigateTo('home'), 500);
+        navigateTo('home');
+        showAlert('Você saiu da conta.', 'success');
     } catch (error) {
         console.error('Logout error:', error);
-        showAlert('Erro ao fazer logout', 'error');
+        showAlert('Não foi possível sair: ' + error.message, 'error');
+    } finally {
+        logoutRequestPending = false;
+        buttons.forEach(button => {
+            if (!document.body.contains(button)) return;
+            button.disabled = false;
+            button.textContent = 'Sair';
+        });
     }
 }
 
@@ -6026,6 +6052,7 @@ document.addEventListener('DOMContentLoaded', setupSecureMobileSidebar);
 
 // KIRA_RUNTIME_ACTIONS_PERF_V24
 const KIRA_ACTION_HANDLERS = Object.freeze({
+    handleLogout,
     cancelPublicBooking,
     deleteProfessionalConfig,
     deleteServiceConfig,
