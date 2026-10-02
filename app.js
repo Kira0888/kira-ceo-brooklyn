@@ -525,7 +525,194 @@ function renderHomePage() {
     `;
 }
 
-function renderBookingPage() {
+// BROOKLYN_RUNTIME_FIX_V11
+async function renderOwnerDashboardPage() {
+    const content = document.getElementById('content');
+    updateTopbar('Visão geral', 'Operação Brooklyn · QS 121');
+
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando operação...</span>
+            </div>
+        </div>
+    `;
+
+    try {
+        if (!appState.workspaceData) {
+            await loadWorkspaceData();
+        }
+
+        const ws = appState.workspaceData || {};
+        const agenda = ws.agenda || [];
+        const services = ws.services || [];
+        const professionals = ws.professionals || [];
+        const financial = ws.financial || {};
+        const orders = financial.orders || [];
+        const cash = financial.cash || [];
+        const commission = financial.commission || [];
+
+        const todayKey = new Date().toLocaleDateString('sv-SE', {
+            timeZone: 'America/Sao_Paulo'
+        });
+
+        const todayAgenda = agenda.filter(item =>
+            new Date(item.starts_at).toLocaleDateString('sv-SE', {
+                timeZone: 'America/Sao_Paulo'
+            }) === todayKey
+        );
+
+        const receivedCents = orders.reduce(
+            (sum, order) => sum + Number(order.paid_cents || 0), 0
+        );
+        const dueCents = orders.reduce(
+            (sum, order) => sum + Number(order.balance_cents || 0), 0
+        );
+        const commissionCents = commission.reduce(
+            (sum, item) => sum + Number(item.payable_cents || 0), 0
+        );
+        const openCash = cash.find(session => session.status === 'OPEN') || null;
+
+        const stateLabels = {
+            BOOKED: 'Agendado',
+            CONFIRMED: 'Confirmado',
+            IN_SERVICE: 'Em atendimento',
+            COMPLETED: 'Concluído',
+            NO_SHOW: 'Faltou',
+            CANCELLED: 'Cancelado',
+            BLOCKED: 'Bloqueio'
+        };
+
+        const agendaCards = todayAgenda.length
+            ? todayAgenda.map(item => {
+                const time = new Date(item.starts_at).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'America/Sao_Paulo'
+                });
+
+                return `
+                    <div class="ops-appointment">
+                        <div class="ops-time">${time}</div>
+                        <div class="ops-appt-main">
+                            <strong>${sanitizeText(item.customer_name || 'Atendimento')}</strong>
+                            <span>${sanitizeText(item.service?.name || 'Agenda')} · ${sanitizeText(item.professional?.display_name || '—')}</span>
+                        </div>
+                        <span class="ops-status ops-status-${sanitizeText((item.state || 'BOOKED').toLowerCase())}">
+                            ${sanitizeText(stateLabels[item.state] || item.state || 'Agendado')}
+                        </span>
+                    </div>
+                `;
+            }).join('')
+            : `
+                <div class="ops-empty">
+                    <strong>Agenda livre hoje</strong>
+                    <span>Nenhum atendimento carregado para esta data.</span>
+                </div>
+            `;
+
+        content.innerHTML = `
+            <div class="content-inner ops-dashboard">
+                <section class="ops-hero">
+                    <div>
+                        <span class="ops-eyebrow">OPERAÇÃO / QS 121</span>
+                        <h1>BROOKLYN<br><em>CONTROL.</em></h1>
+                        <p>Visão diária de agenda, caixa, recebimentos e equipe.</p>
+                    </div>
+
+                    <div class="ops-hero-actions">
+                        <a href="#agenda" class="ops-action-primary">ABRIR AGENDA <b>↗</b></a>
+                        <a href="#financeiro" class="ops-action-link">FINANCEIRO</a>
+                    </div>
+                </section>
+
+                <section class="ops-kpis">
+                    <article>
+                        <span>HOJE</span>
+                        <strong>${todayAgenda.length}</strong>
+                        <small>atendimentos</small>
+                    </article>
+                    <article>
+                        <span>RECEBIDO</span>
+                        <strong>R$ ${(receivedCents / 100).toFixed(2)}</strong>
+                        <small>líquido</small>
+                    </article>
+                    <article>
+                        <span>A RECEBER</span>
+                        <strong>R$ ${(dueCents / 100).toFixed(2)}</strong>
+                        <small>saldo aberto</small>
+                    </article>
+                    <article>
+                        <span>COMISSÕES</span>
+                        <strong>R$ ${(commissionCents / 100).toFixed(2)}</strong>
+                        <small>a repassar</small>
+                    </article>
+                </section>
+
+                <section class="ops-main-grid">
+                    <article class="ops-panel ops-panel-agenda">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>AGENDA / HOJE</span>
+                                <h2>Movimento do dia</h2>
+                            </div>
+                            <a href="#agenda">VER AGENDA ↗</a>
+                        </div>
+                        <div class="ops-appointment-list">${agendaCards}</div>
+                    </article>
+
+                    <article class="ops-panel ops-cash-card ${openCash ? 'is-open' : 'is-closed'}">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>CAIXA</span>
+                                <h2>${openCash ? 'Sessão aberta' : 'Sessão fechada'}</h2>
+                            </div>
+                            <span class="ops-cash-dot"></span>
+                        </div>
+
+                        <p>
+                            ${openCash
+                                ? `Esperado agora: R$ ${(Number(openCash.expected_cash_now_cents || 0) / 100).toFixed(2)}`
+                                : 'Abra o caixa antes de registrar movimentações em dinheiro.'}
+                        </p>
+
+                        <a href="#financeiro" class="ops-action-link">IR PARA O CAIXA ↗</a>
+                    </article>
+                </section>
+
+                <section class="ops-secondary-grid">
+                    <article class="ops-panel">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>ESTRUTURA</span>
+                                <h2>Catálogo ativo</h2>
+                            </div>
+                            <a href="#configuracoes">CONFIGURAR ↗</a>
+                        </div>
+
+                        <div class="ops-catalog-stats">
+                            <div><strong>${services.length}</strong><span>serviços</span></div>
+                            <div><strong>${professionals.length}</strong><span>profissionais</span></div>
+                            <div><strong>${Number(ws.customers_count || 0)}</strong><span>clientes</span></div>
+                        </div>
+                    </article>
+                </section>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Owner dashboard error:', error);
+        content.innerHTML = `
+            <div class="content-inner">
+                <div class="alert alert-error">
+                    Erro ao carregar visão geral: ${sanitizeText(error.message || 'erro desconhecido')}
+                </div>
+            </div>
+        `;
+    }
+}
+
+async function renderBookingPage() {
     const content = document.getElementById('content');
     updateTopbar('Agendamento', 'Reserve seu horário');
 
