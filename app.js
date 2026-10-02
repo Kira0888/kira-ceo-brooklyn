@@ -1,3 +1,4 @@
+// KIRA_BOOKING_PRESENTATION_V24_7
 // KIRA_ACCOUNT_LOGOUT_V24_5
 // Kira-CEO Brooklyn - Frontend Application
 // GitHub Pages Static Frontend with Supabase Integration
@@ -241,9 +242,18 @@ async function ensureWorkspaceAccess() {
 }
 
 function updateNavigationByRole() {
-    const navConfigs = document.getElementById('nav-configuracoes');
-    if (!navConfigs) return;
-    navConfigs.style.display = (appState.currentUser && ['OWNER', 'RECEPTION'].includes(appState.userRole)) ? '' : 'none';
+    const role = appState.currentUser ? appState.userRole : null;
+    const permissions = {
+        agenda: ['OWNER', 'RECEPTION', 'BARBER'],
+        financeiro: ['OWNER', 'RECEPTION'],
+        relatorios: ['OWNER'],
+        configuracoes: ['OWNER', 'RECEPTION']
+    };
+    for (const [page, roles] of Object.entries(permissions)) {
+        document.querySelectorAll(`.nav-item[data-page="${page}"]`).forEach(link => {
+            link.style.display = roles.includes(role) ? '' : 'none';
+        });
+    }
 }
 
 
@@ -401,7 +411,7 @@ function renderPage(page) {
     
     // Check authentication for protected pages
     const protectedPages = ['agenda', 'financeiro', 'relatorios', 'configuracoes'];
-    if (protectedPages.includes(page) && !appState.currentUser) {
+    if (protectedPages.includes(page) && (!appState.currentUser || !appState.userRole)) {
         navigateTo('acesso-interno');
         return;
     }
@@ -546,8 +556,8 @@ function renderHomePage() {
 
                 <div class="brooklyn-editorial-copy-v12">
                     <p>
-                        Menos ruído, menos etapas e uma presença visual que acompanha a identidade
-                        da Brooklyn sem parecer um template de software.
+                        Escolha seu atendimento e encontre um horário disponível
+                        para visitar a Brooklyn na unidade QS 121.
                     </p>
 
                     <div class="brooklyn-editorial-lines-v12">
@@ -827,8 +837,8 @@ async function renderBookingPage() {
                     </h2>
 
                     <p>
-                        O canal público ainda não foi liberado pela unidade.
-                        Nenhuma reserva de demonstração será criada para clientes reais.
+                        O agendamento online ainda não está disponível nesta unidade.
+                        Tente novamente mais tarde.
                     </p>
 
                     <a href="#home" class="editorial-cta">
@@ -1135,7 +1145,7 @@ async function loadBookingCatalog() {
             appState.services.forEach(service => {
                 const option = document.createElement('option');
                 option.value = service.id;
-                option.textContent = `${service.name} — R$ ${(service.price_cents / 100).toFixed(2)}`;
+                option.textContent = `${service.name} — ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.price_cents / 100)}`;
                 serviceSelect.appendChild(option);
             });
         }
@@ -1255,6 +1265,7 @@ function handleServiceChange() {
         document.getElementById('time-container').style.display = 'none';
         document.getElementById('customer-form').style.display = 'none';
     }
+    void loadAvailableTimes();
 }
 
 function handleProfessionalChange() {
@@ -1268,38 +1279,60 @@ function handleProfessionalChange() {
         document.getElementById('time-container').style.display = 'none';
         document.getElementById('customer-form').style.display = 'none';
     }
+    void loadAvailableTimes();
 }
 
 async function loadAvailableTimes() {
+    const request = (appState.bookingAvailabilityRequest || 0) + 1;
+    appState.bookingAvailabilityRequest = request;
+    appState.bookingState.availableKey = null;
+    const service = document.getElementById('service-select')?.value;
+    const professional = document.getElementById('professional-select')?.value;
+    const date = document.getElementById('booking-date')?.value;
+    const timeSelect = document.getElementById('time-select');
+    const confirmButton = document.getElementById('confirm-booking');
+    if (!timeSelect) return;
+    timeSelect.disabled = true;
+    timeSelect.innerHTML = '<option value="">Selecione serviço, profissional e data</option>';
+    if (confirmButton) confirmButton.disabled = true;
+    if (!service || !professional || !date) return;
+    const tenant = appState.bookingState.tenant;
+    const key = JSON.stringify([tenant, service, professional, date]);
+    const isCurrent = () =>
+        request === appState.bookingAvailabilityRequest &&
+        document.getElementById('time-select') === timeSelect &&
+        JSON.stringify([
+            appState.bookingState.tenant,
+            document.getElementById('service-select')?.value,
+            document.getElementById('professional-select')?.value,
+            document.getElementById('booking-date')?.value
+        ]) === key;
+    timeSelect.innerHTML = '<option value="">Carregando horários...</option>';
     try {
-        const service = document.getElementById('service-select').value;
-        const professional = document.getElementById('professional-select').value;
-        const date = document.getElementById('booking-date').value;
-
-        if (!service || !professional || !date) return;
-
-        const response = await fetch(
-            `${BOOKING_ENDPOINT}?mode=availability&tenant=${appState.bookingState.tenant}&service_id=${service}&professional_id=${professional}&date=${date}`
-        );
-
+        const params = new URLSearchParams({mode: 'availability', tenant, service_id: service, professional_id: professional, date});
+        const response = await fetch(`${BOOKING_ENDPOINT}?${params}`);
+        if (!isCurrent()) return;
         if (!response.ok) throw new Error('Availability check failed');
         const data = await response.json();
-
-        const timeSelect = document.getElementById('time-select');
-        timeSelect.innerHTML = '<option value="">Selecione um horário</option>';
-        
-        if (data.slots && data.slots.length > 0) {
-            data.slots.forEach(slot => {
-                const option = document.createElement('option');
-                option.value = slot.starts_at;
-                option.textContent = slot.label;
-                timeSelect.appendChild(option);
-            });
-        } else {
-            timeSelect.innerHTML = '<option value="">Sem horários disponíveis</option>';
+        if (!isCurrent()) return;
+        const slots = Array.isArray(data.slots) ? data.slots : [];
+        timeSelect.innerHTML = slots.length
+            ? '<option value="">Selecione um horário</option>'
+            : '<option value="">Sem horários disponíveis</option>';
+        for (const slot of slots) {
+            const option = document.createElement('option');
+            option.value = slot.starts_at;
+            option.textContent = slot.label;
+            timeSelect.appendChild(option);
         }
+        appState.bookingState.availableKey = key;
+        timeSelect.disabled = !slots.length;
+        if (confirmButton) confirmButton.disabled = !slots.length || publicBookingMutationState.pending;
     } catch (error) {
+        if (!isCurrent()) return;
         console.error('Time load error:', error);
+        timeSelect.innerHTML = '<option value="">Não foi possível carregar os horários</option>';
+        showAlert('Não foi possível consultar os horários. Selecione a data novamente para tentar.', 'error');
     }
 }
 
@@ -1326,6 +1359,16 @@ async function submitBooking() {
 
         if (!service || !professional || !startsAt || !name || !phone) {
             showAlert('Preencha todos os campos', 'error');
+            return;
+        }
+
+        const availabilityKey = JSON.stringify([
+            appState.bookingState.tenant, service, professional,
+            document.getElementById('booking-date').value
+        ]);
+        if (appState.bookingState.availableKey !== availabilityKey ||
+            document.getElementById('time-select').disabled) {
+            showAlert('Aguarde a consulta e selecione um horário disponível.', 'error');
             return;
         }
 
@@ -1429,7 +1472,7 @@ async function submitBooking() {
         publicBookingMutationState.pending = false;
 
         if (confirmButton && document.body.contains(confirmButton)) {
-            confirmButton.disabled = false;
+            confirmButton.disabled = !appState.bookingState.availableKey || Boolean(document.getElementById('time-select')?.disabled);
             confirmButton.removeAttribute('aria-busy');
         }
     }
@@ -1539,15 +1582,16 @@ async function renderAuthPage() {
 
 function renderAccessRecoveryState() {
     const content = document.getElementById('content');
-    updateTopbar('Acesso interno', 'Sincronização de conta');
+    updateTopbar('Acesso interno', 'Verificação de acesso');
 
     content.innerHTML = `
         <div class="content-inner">
             <div class="card" style="max-width:560px;margin:2rem auto;">
-                <div class="card-title">Conta autenticada</div>
+                <div class="card-title">Acesso indisponível</div>
                 <p class="text-muted">
-                    Não foi possível carregar a permissão neste momento.
-                    Sua conta não precisa de código de ativação.
+                    Não foi possível confirmar sua autorização para esta unidade.
+                    Tente novamente. Se o problema continuar, fale com o responsável
+                    para verificar se seu acesso está ativo.
                 </p>
                 <div class="button-group" style="margin-top:1rem;">
                     <button class="button button-primary" id="retry-access-btn">Tentar novamente</button>
@@ -1563,7 +1607,7 @@ function renderAccessRecoveryState() {
             showAlert('Acesso sincronizado', 'success');
             navigateTo('home');
         } else {
-            showAlert('Ainda não foi possível sincronizar o acesso.', 'error');
+            showAlert('A autorização ainda não foi confirmada. Verifique seu acesso com o responsável.', 'error');
         }
     });
 
@@ -4196,7 +4240,9 @@ async function showProfessionalForm(professionalId = null) {
                     <span>ACESSO VINCULADO</span>
                     <p>
                         Este perfil já possui uma conta de autenticação associada.
-                        A edição abaixo não altera login nem permissões.
+                        Desativar este perfil encerra o acesso de profissional à unidade
++                        quando ele não possui outro perfil ativo vinculado.
++                        Acesso de proprietário ou recepção é preservado.
                     </p>
                 </div>
             ` : ''}
@@ -4206,12 +4252,15 @@ async function showProfessionalForm(professionalId = null) {
                     type="checkbox"
                     id="professional-active"
                     ${professional ? (professional.active ? 'checked' : '') : 'checked'}
++                    ${professional && appState.userRole !== 'OWNER' ? 'disabled' : ''}
                 >
                 <span>
                     <strong>Profissional ativo</strong>
                     <small>
                         Desativar remove o perfil das novas reservas
-                        sem apagar o histórico.
+                        sem apagar o histórico. Somente o proprietário pode alterar
++                        o status de um perfil existente. Reativar o perfil não
++                        restaura automaticamente um acesso encerrado.
                     </small>
                 </span>
             </label>
@@ -4303,7 +4352,7 @@ async function submitProfessionalForm() {
                 .from('professionals')
                 .update({
                     display_name: name,
-                    active
+                    ...(appState.userRole === 'OWNER' ? { active } : {})
                 })
                 .eq('organization_id', orgId)
                 .eq('id', professionalId);
