@@ -3264,190 +3264,904 @@ async function renderConfigurationPage() {
     `;
 }
 
+// KIRA_CONFIG_OPERATIONS_V18_FINAL
+const configurationMutationRequests = new Set();
+
+function escapeConfigAttribute(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function setConfigButtonBusy(button, busy, label = 'Salvando...') {
+    if (!button) return;
+
+    if (busy) {
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.textContent.trim();
+        }
+
+        button.disabled = true;
+        button.textContent = label;
+        button.setAttribute('aria-busy', 'true');
+        return;
+    }
+
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+
+    if (button.dataset.originalLabel) {
+        button.textContent = button.dataset.originalLabel;
+    }
+}
+
+async function refreshConfigurationWorkspace() {
+    appState.workspaceData = null;
+    const loaded = await loadWorkspaceData(false);
+
+    if (!loaded || !appState.workspaceData) {
+        throw new Error(
+            'Alteração salva, mas não foi possível atualizar os dados da unidade.'
+        );
+    }
+}
+
 async function showServicesConfig() {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando serviços...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando serviços...</span>
+            </div>
+        </div>
+    `;
+
     try {
         const { data: services, error } = await appState.supabaseClient
             .from('services')
             .select('id,name,price_cents,duration_minutes,buffer_after_minutes,active')
             .eq('organization_id', orgId)
             .order('name');
+
         if (error) throw error;
 
         configContent.innerHTML = `
-            <div class="card">
-                <div class="card-title">Serviços</div>
-                <button class="button button-primary" onclick="showAddServiceForm()" style="margin-bottom:1rem">Adicionar serviço</button>
+            <div class="card config-list-card">
+                <div class="config-list-head">
+                    <div>
+                        <span>CATÁLOGO</span>
+                        <div class="card-title">Serviços</div>
+                        <p>
+                            Edite preço, duração, intervalo e disponibilidade
+                            sem remover o histórico financeiro.
+                        </p>
+                    </div>
+
+                    <button
+                        class="button button-primary"
+                        onclick="showServiceForm()"
+                    >
+                        Adicionar serviço
+                    </button>
+                </div>
+
                 ${(services || []).length ? `
-                    <table><thead><tr><th>Nome</th><th>Preço</th><th>Duração</th><th>Buffer</th><th>Ativo</th></tr></thead><tbody>
-                    ${(services || []).map(s => `<tr><td>${sanitizeText(s.name)}</td><td>R$ ${((s.price_cents || 0)/100).toFixed(2)}</td><td>${s.duration_minutes} min</td><td>${s.buffer_after_minutes || 0} min</td><td>${s.active ? 'Sim' : 'Não'}</td></tr>`).join('')}
-                    </tbody></table>` : '<p class="text-muted">Nenhum serviço cadastrado</p>'}
-            </div>`;
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Preço</th>
+                                    <th>Duração</th>
+                                    <th>Buffer</th>
+                                    <th>Status</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(services || []).map(s => `
+                                    <tr>
+                                        <td>${sanitizeText(s.name)}</td>
+                                        <td>
+                                            ${new Intl.NumberFormat('pt-BR', {
+                                                style: 'currency',
+                                                currency: 'BRL'
+                                            }).format(Number(s.price_cents || 0) / 100)}
+                                        </td>
+                                        <td>${Number(s.duration_minutes || 0)} min</td>
+                                        <td>${Number(s.buffer_after_minutes || 0)} min</td>
+                                        <td>
+                                            <span class="config-status ${s.active ? 'is-active' : 'is-inactive'}">
+                                                ${s.active ? 'ATIVO' : 'INATIVO'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="config-row-actions">
+                                                <button
+                                                    class="button button-secondary compact-action"
+                                                    onclick="showServiceForm('${s.id}')"
+                                                >
+                                                    Editar
+                                                </button>
+
+                                                ${appState.userRole === 'OWNER' ? `
+                                                    <button
+                                                        class="button config-danger-action compact-action"
+                                                        onclick="deleteServiceConfig('${s.id}')"
+                                                    >
+                                                        Excluir
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : `
+                    <div class="ops-empty">
+                        <strong>Nenhum serviço cadastrado</strong>
+                        <span>Adicione o primeiro item do catálogo da unidade.</span>
+                    </div>
+                `}
+            </div>
+        `;
     } catch (error) {
         console.error('Load services error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar serviços: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar serviços: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
 }
 
-function showAddServiceForm() {
+async function showServiceForm(serviceId = null) {
     const configContent = document.getElementById('config-content');
+    const orgId = appState.workspaceData?.organization?.id;
+
+    let service = null;
+
+    if (serviceId) {
+        configContent.innerHTML = `
+            <div class="card">
+                <div class="ops-loading">
+                    <div class="loading"></div>
+                    <span>Carregando serviço...</span>
+                </div>
+            </div>
+        `;
+
+        const { data, error } = await appState.supabaseClient
+            .from('services')
+            .select('id,name,price_cents,duration_minutes,buffer_after_minutes,active')
+            .eq('organization_id', orgId)
+            .eq('id', serviceId)
+            .maybeSingle();
+
+        if (error) {
+            showAlert('Erro ao carregar serviço: ' + error.message, 'error');
+            return showServicesConfig();
+        }
+
+        if (!data) {
+            showAlert('Serviço não encontrado', 'error');
+            return showServicesConfig();
+        }
+
+        service = data;
+    }
+
+    const price = service
+        ? (Number(service.price_cents || 0) / 100).toFixed(2)
+        : '';
+
     configContent.innerHTML = `
-        <div class="card" style="max-width: 500px;">
-            <div class="card-title">Novo serviço</div>
-            
+        <div class="card form-card config-edit-card">
+            <div class="config-form-heading">
+                <span>${service ? 'EDIÇÃO' : 'NOVO ITEM'}</span>
+                <div class="card-title">
+                    ${service ? 'Editar serviço' : 'Novo serviço'}
+                </div>
+            </div>
+
+            <input
+                type="hidden"
+                id="service-id"
+                value="${service?.id || ''}"
+            >
+
             <div class="form-group">
                 <label>Nome</label>
-                <input type="text" id="service-name" placeholder="Nome do serviço">
+                <input
+                    type="text"
+                    id="service-name"
+                    maxlength="120"
+                    autocomplete="off"
+                    placeholder="Nome do serviço"
+                    value="${escapeConfigAttribute(service?.name || '')}"
+                >
             </div>
 
             <div class="form-group">
                 <label>Preço (R$)</label>
-                <input type="number" id="service-price" placeholder="0,00" step="0.01" min="0">
+                <input
+                    type="number"
+                    id="service-price"
+                    placeholder="0,00"
+                    step="0.01"
+                    min="0"
+                    value="${price}"
+                >
             </div>
 
-            <div class="form-group">
-                <label>Duração (minutos)</label>
-                <input type="number" id="service-duration" placeholder="30" step="1" min="1">
+            <div class="config-form-grid">
+                <div class="form-group">
+                    <label>Duração (minutos)</label>
+                    <input
+                        type="number"
+                        id="service-duration"
+                        step="1"
+                        min="5"
+                        max="720"
+                        value="${service?.duration_minutes ?? 45}"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Buffer após atendimento</label>
+                    <input
+                        type="number"
+                        id="service-buffer"
+                        step="1"
+                        min="0"
+                        max="120"
+                        value="${service?.buffer_after_minutes ?? 0}"
+                    >
+                </div>
             </div>
 
-            <div class="form-group">
-                <label>Buffer após atendimento (minutos)</label>
-                <input type="number" id="service-buffer" placeholder="5" step="1" min="0">
-            </div>
-
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="service-active" checked> Ativo
-                </label>
-            </div>
+            <label class="config-toggle-row">
+                <input
+                    type="checkbox"
+                    id="service-active"
+                    ${service ? (service.active ? 'checked' : '') : 'checked'}
+                >
+                <span>
+                    <strong>Serviço ativo</strong>
+                    <small>
+                        Serviços inativos ficam fora do catálogo público,
+                        mas o histórico é preservado.
+                    </small>
+                </span>
+            </label>
 
             <div class="button-group">
-                <button class="button button-primary" onclick="submitAddService()">Salvar</button>
-                <button class="button button-secondary" onclick="showServicesConfig()">Cancelar</button>
+                <button
+                    class="button button-primary"
+                    id="service-save-submit"
+                    onclick="submitServiceForm()"
+                >
+                    ${service ? 'Salvar alterações' : 'Criar serviço'}
+                </button>
+
+                <button
+                    class="button button-secondary"
+                    onclick="showServicesConfig()"
+                >
+                    Cancelar
+                </button>
             </div>
         </div>
     `;
 }
 
-async function submitAddService() {
+function showAddServiceForm() {
+    return showServiceForm();
+}
+
+async function submitServiceForm() {
+    const serviceId = document.getElementById('service-id')?.value || null;
+    const requestKey = `service:${serviceId || 'new'}`;
+    const button = document.getElementById('service-save-submit');
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
     try {
         const name = document.getElementById('service-name').value.trim();
-        const priceReais = parseFloat(document.getElementById('service-price').value);
-        const duration = parseInt(document.getElementById('service-duration').value);
-        const buffer = parseInt(document.getElementById('service-buffer').value) || 0;
+        const priceReais = Number(document.getElementById('service-price').value);
+        const duration = Number(document.getElementById('service-duration').value);
+        const buffer = Number(document.getElementById('service-buffer').value);
         const active = document.getElementById('service-active').checked;
         const orgId = appState.workspaceData?.organization?.id;
 
-        if (!name || isNaN(priceReais) || isNaN(duration)) {
-            showAlert('Preencha os dados obrigatórios', 'error');
+        if (!name || name.length < 2) {
+            showAlert('Informe o nome do serviço', 'error');
             return;
         }
 
-        const priceCents = Math.round(priceReais * 100);
+        if (!Number.isFinite(priceReais) || priceReais < 0) {
+            showAlert('Informe um preço válido', 'error');
+            return;
+        }
 
-        const { data, error } = await appState.supabaseClient
+        if (
+            !Number.isInteger(duration) ||
+            duration < 5 ||
+            duration > 720
+        ) {
+            showAlert('A duração deve ficar entre 5 e 720 minutos', 'error');
+            return;
+        }
+
+        if (
+            !Number.isInteger(buffer) ||
+            buffer < 0 ||
+            buffer > 120
+        ) {
+            showAlert('O buffer deve ficar entre 0 e 120 minutos', 'error');
+            return;
+        }
+
+        let duplicateQuery = appState.supabaseClient
             .from('services')
-            .insert([{
-                organization_id: orgId,
-                name,
-                price_cents: priceCents,
-                duration_minutes: duration,
-                buffer_after_minutes: buffer,
-                active
-            }]);
+            .select('id')
+            .eq('organization_id', orgId)
+            .ilike('name', name)
+            .limit(1);
 
-        if (error) throw error;
+        if (serviceId) {
+            duplicateQuery = duplicateQuery.neq('id', serviceId);
+        }
 
-        // Refresh workspace data and re-render
-        appState.workspaceData = null;
-        await loadWorkspaceData();
-        showAlert('Serviço criado com sucesso', 'success');
-        setTimeout(() => showServicesConfig(), 1000);
+        const { data: duplicate, error: duplicateError } =
+            await duplicateQuery.maybeSingle();
+
+        if (duplicateError) throw duplicateError;
+
+        if (duplicate) {
+            showAlert('Já existe um serviço com esse nome', 'error');
+            return;
+        }
+
+        configurationMutationRequests.add(requestKey);
+        setConfigButtonBusy(
+            button,
+            true,
+            serviceId ? 'Salvando...' : 'Criando...'
+        );
+
+        const payload = {
+            name,
+            price_cents: Math.round(priceReais * 100),
+            duration_minutes: duration,
+            buffer_after_minutes: buffer,
+            active
+        };
+
+        let result;
+
+        if (serviceId) {
+            result = await appState.supabaseClient
+                .from('services')
+                .update(payload)
+                .eq('organization_id', orgId)
+                .eq('id', serviceId);
+        } else {
+            result = await appState.supabaseClient
+                .from('services')
+                .insert([{
+                    organization_id: orgId,
+                    ...payload
+                }]);
+        }
+
+        if (result.error) throw result.error;
+
+        await refreshConfigurationWorkspace();
+
+        showAlert(
+            serviceId
+                ? 'Serviço atualizado com sucesso'
+                : 'Serviço criado com sucesso',
+            'success'
+        );
+
+        await showServicesConfig();
     } catch (error) {
-        console.error('Add service error:', error);
-        showAlert('Erro ao criar serviço: ' + error.message, 'error');
+        console.error('Save service error:', error);
+        showAlert('Erro ao salvar serviço: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setConfigButtonBusy(button, false);
+        }
     }
+}
+
+async function deleteServiceConfig(serviceId) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Somente o proprietário pode excluir serviços', 'error');
+        return;
+    }
+
+    const requestKey = `delete-service:${serviceId}`;
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const orgId = appState.workspaceData?.organization?.id;
+
+        const { data: service, error: loadError } = await appState.supabaseClient
+            .from('services')
+            .select('id,name,active')
+            .eq('organization_id', orgId)
+            .eq('id', serviceId)
+            .maybeSingle();
+
+        if (loadError) throw loadError;
+
+        if (!service) {
+            showAlert('Serviço não encontrado', 'error');
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Excluir "${service.name}" permanentemente?\n\n` +
+            'Se o serviço já possuir atendimentos ou registros financeiros, ' +
+            'o sistema bloqueará a exclusão. Nesse caso, deixe-o inativo.'
+        );
+
+        if (!confirmed) return;
+
+        configurationMutationRequests.add(requestKey);
+
+        const { error } = await appState.supabaseClient
+            .from('services')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('id', serviceId);
+
+        if (error) {
+            if (error.code === '23503') {
+                showAlert(
+                    'Este serviço possui histórico e não pode ser excluído. Edite-o e marque como inativo.',
+                    'error'
+                );
+                return;
+            }
+
+            throw error;
+        }
+
+        await refreshConfigurationWorkspace();
+        showAlert('Serviço excluído com sucesso', 'success');
+        await showServicesConfig();
+    } catch (error) {
+        console.error('Delete service error:', error);
+        showAlert('Erro ao excluir serviço: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+    }
+}
+
+// Compatibilidade com versões anteriores.
+async function submitAddService() {
+    return submitServiceForm();
 }
 
 async function showProfessionalsConfig() {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando profissionais...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando profissionais...</span>
+            </div>
+        </div>
+    `;
+
     try {
         const { data: professionals, error } = await appState.supabaseClient
             .from('professionals')
             .select('id,display_name,active,auth_user_id')
             .eq('organization_id', orgId)
             .order('display_name');
+
         if (error) throw error;
+
         configContent.innerHTML = `
-            <div class="card"><div class="card-title">Profissionais</div>
-            <button class="button button-primary" onclick="showAddProfessionalForm()" style="margin-bottom:1rem">Adicionar profissional</button>
-            ${(professionals || []).length ? `<table><thead><tr><th>Nome</th><th>Ativo</th></tr></thead><tbody>${(professionals || []).map(p => `<tr><td>${sanitizeText(p.display_name)}</td><td>${p.active ? 'Sim' : 'Não'}</td></tr>`).join('')}</tbody></table>` : '<p class="text-muted">Nenhum profissional cadastrado</p>'}
-            </div>`;
+            <div class="card config-list-card">
+                <div class="config-list-head">
+                    <div>
+                        <span>EQUIPE</span>
+                        <div class="card-title">Profissionais</div>
+                        <p>
+                            Cadastre a equipe e desative perfis sem apagar
+                            o histórico de atendimentos.
+                        </p>
+                    </div>
+
+                    <button
+                        class="button button-primary"
+                        onclick="showProfessionalForm()"
+                    >
+                        Adicionar profissional
+                    </button>
+                </div>
+
+                ${(professionals || []).length ? `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Status</th>
+                                    <th>Acesso</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(professionals || []).map(p => `
+                                    <tr>
+                                        <td>${sanitizeText(p.display_name)}</td>
+                                        <td>
+                                            <span class="config-status ${p.active ? 'is-active' : 'is-inactive'}">
+                                                ${p.active ? 'ATIVO' : 'INATIVO'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            ${p.auth_user_id
+                                                ? '<span class="config-access-linked">VINCULADO</span>'
+                                                : '<span class="text-muted">Sem login</span>'
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="config-row-actions">
+                                                <button
+                                                    class="button button-secondary compact-action"
+                                                    onclick="showProfessionalForm('${p.id}')"
+                                                >
+                                                    Editar
+                                                </button>
+
+                                                ${appState.userRole === 'OWNER' ? `
+                                                    <button
+                                                        class="button config-danger-action compact-action"
+                                                        onclick="deleteProfessionalConfig('${p.id}')"
+                                                    >
+                                                        Excluir
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : `
+                    <div class="ops-empty">
+                        <strong>Nenhum profissional cadastrado</strong>
+                        <span>Adicione o primeiro integrante da equipe.</span>
+                    </div>
+                `}
+            </div>
+        `;
     } catch (error) {
         console.error('Load professionals error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar profissionais: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar profissionais: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
 }
 
-function showAddProfessionalForm() {
+async function showProfessionalForm(professionalId = null) {
     const configContent = document.getElementById('config-content');
+    const orgId = appState.workspaceData?.organization?.id;
+
+    let professional = null;
+
+    if (professionalId) {
+        configContent.innerHTML = `
+            <div class="card">
+                <div class="ops-loading">
+                    <div class="loading"></div>
+                    <span>Carregando profissional...</span>
+                </div>
+            </div>
+        `;
+
+        const { data, error } = await appState.supabaseClient
+            .from('professionals')
+            .select('id,display_name,active,auth_user_id')
+            .eq('organization_id', orgId)
+            .eq('id', professionalId)
+            .maybeSingle();
+
+        if (error) {
+            showAlert('Erro ao carregar profissional: ' + error.message, 'error');
+            return showProfessionalsConfig();
+        }
+
+        if (!data) {
+            showAlert('Profissional não encontrado', 'error');
+            return showProfessionalsConfig();
+        }
+
+        professional = data;
+    }
+
     configContent.innerHTML = `
-        <div class="card" style="max-width: 500px;">
-            <div class="card-title">Novo profissional</div>
-            
+        <div class="card form-card config-edit-card">
+            <div class="config-form-heading">
+                <span>${professional ? 'EDIÇÃO' : 'NOVO PERFIL'}</span>
+                <div class="card-title">
+                    ${professional ? 'Editar profissional' : 'Novo profissional'}
+                </div>
+            </div>
+
+            <input
+                type="hidden"
+                id="professional-id"
+                value="${professional?.id || ''}"
+            >
+
             <div class="form-group">
                 <label>Nome</label>
-                <input type="text" id="professional-name" placeholder="Nome do profissional">
+                <input
+                    type="text"
+                    id="professional-name"
+                    maxlength="120"
+                    autocomplete="off"
+                    placeholder="Nome do profissional"
+                    value="${escapeConfigAttribute(professional?.display_name || '')}"
+                >
             </div>
 
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="professional-active" checked> Ativo
-                </label>
-            </div>
+            ${professional?.auth_user_id ? `
+                <div class="config-linked-note">
+                    <span>ACESSO VINCULADO</span>
+                    <p>
+                        Este perfil já possui uma conta de autenticação associada.
+                        A edição abaixo não altera login nem permissões.
+                    </p>
+                </div>
+            ` : ''}
+
+            <label class="config-toggle-row">
+                <input
+                    type="checkbox"
+                    id="professional-active"
+                    ${professional ? (professional.active ? 'checked' : '') : 'checked'}
+                >
+                <span>
+                    <strong>Profissional ativo</strong>
+                    <small>
+                        Desativar remove o perfil das novas reservas
+                        sem apagar o histórico.
+                    </small>
+                </span>
+            </label>
 
             <div class="button-group">
-                <button class="button button-primary" onclick="submitAddProfessional()">Salvar</button>
-                <button class="button button-secondary" onclick="showProfessionalsConfig()">Cancelar</button>
+                <button
+                    class="button button-primary"
+                    id="professional-save-submit"
+                    onclick="submitProfessionalForm()"
+                >
+                    ${professional ? 'Salvar alterações' : 'Criar profissional'}
+                </button>
+
+                <button
+                    class="button button-secondary"
+                    onclick="showProfessionalsConfig()"
+                >
+                    Cancelar
+                </button>
             </div>
         </div>
     `;
 }
 
-async function submitAddProfessional() {
-    try {
-        const name = document.getElementById('professional-name').value.trim();
-        const active = document.getElementById('professional-active').checked;
-        const orgId = appState.workspaceData?.organization?.id;
+function showAddProfessionalForm() {
+    return showProfessionalForm();
+}
 
-        if (!name) {
+async function submitProfessionalForm() {
+    const professionalId =
+        document.getElementById('professional-id')?.value || null;
+
+    const requestKey = `professional:${professionalId || 'new'}`;
+    const button = document.getElementById('professional-save-submit');
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const name =
+            document.getElementById('professional-name').value.trim();
+
+        const active =
+            document.getElementById('professional-active').checked;
+
+        const orgId =
+            appState.workspaceData?.organization?.id;
+
+        if (!name || name.length < 2) {
             showAlert('Digite o nome do profissional', 'error');
             return;
         }
 
-        const { data, error } = await appState.supabaseClient
+        let duplicateQuery = appState.supabaseClient
             .from('professionals')
-            .insert([{
-                organization_id: orgId,
-                display_name: name,
-                active
-            }]);
+            .select('id')
+            .eq('organization_id', orgId)
+            .ilike('display_name', name)
+            .limit(1);
 
-        if (error) throw error;
+        if (professionalId) {
+            duplicateQuery =
+                duplicateQuery.neq('id', professionalId);
+        }
 
-        // Refresh workspace data and re-render
-        appState.workspaceData = null;
-        await loadWorkspaceData();
-        showAlert('Profissional criado com sucesso', 'success');
-        setTimeout(() => showProfessionalsConfig(), 1000);
+        const { data: duplicate, error: duplicateError } =
+            await duplicateQuery.maybeSingle();
+
+        if (duplicateError) throw duplicateError;
+
+        if (duplicate) {
+            showAlert(
+                'Já existe um profissional com esse nome',
+                'error'
+            );
+            return;
+        }
+
+        configurationMutationRequests.add(requestKey);
+        setConfigButtonBusy(
+            button,
+            true,
+            professionalId ? 'Salvando...' : 'Criando...'
+        );
+
+        let result;
+
+        if (professionalId) {
+            result = await appState.supabaseClient
+                .from('professionals')
+                .update({
+                    display_name: name,
+                    active
+                })
+                .eq('organization_id', orgId)
+                .eq('id', professionalId);
+        } else {
+            result = await appState.supabaseClient
+                .from('professionals')
+                .insert([{
+                    organization_id: orgId,
+                    display_name: name,
+                    active
+                }]);
+        }
+
+        if (result.error) throw result.error;
+
+        await refreshConfigurationWorkspace();
+
+        showAlert(
+            professionalId
+                ? 'Profissional atualizado com sucesso'
+                : 'Profissional criado com sucesso',
+            'success'
+        );
+
+        await showProfessionalsConfig();
     } catch (error) {
-        console.error('Add professional error:', error);
-        showAlert('Erro ao criar profissional: ' + error.message, 'error');
+        console.error('Save professional error:', error);
+        showAlert(
+            'Erro ao salvar profissional: ' + error.message,
+            'error'
+        );
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setConfigButtonBusy(button, false);
+        }
     }
+}
+
+async function deleteProfessionalConfig(professionalId) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Somente o proprietário pode excluir profissionais', 'error');
+        return;
+    }
+
+    const requestKey = `delete-professional:${professionalId}`;
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const orgId = appState.workspaceData?.organization?.id;
+
+        const { data: professional, error: loadError } = await appState.supabaseClient
+            .from('professionals')
+            .select('id,display_name,active,auth_user_id')
+            .eq('organization_id', orgId)
+            .eq('id', professionalId)
+            .maybeSingle();
+
+        if (loadError) throw loadError;
+
+        if (!professional) {
+            showAlert('Profissional não encontrado', 'error');
+            return;
+        }
+
+        if (professional.auth_user_id) {
+            showAlert(
+                'Este profissional possui login vinculado. Para preservar o acesso e a auditoria, desative o perfil em vez de excluí-lo.',
+                'error'
+            );
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Excluir "${professional.display_name}" permanentemente?\n\n` +
+            'Se houver agenda, comissão, pagamento ou histórico relacionado, ' +
+            'o banco bloqueará a exclusão. Nesse caso, desative o profissional.'
+        );
+
+        if (!confirmed) return;
+
+        configurationMutationRequests.add(requestKey);
+
+        const { error } = await appState.supabaseClient
+            .from('professionals')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('id', professionalId);
+
+        if (error) {
+            if (error.code === '23503') {
+                showAlert(
+                    'Este profissional possui histórico operacional ou financeiro e não pode ser excluído. Edite-o e marque como inativo.',
+                    'error'
+                );
+                return;
+            }
+
+            throw error;
+        }
+
+        await refreshConfigurationWorkspace();
+        showAlert('Profissional excluído com sucesso', 'success');
+        await showProfessionalsConfig();
+    } catch (error) {
+        console.error('Delete professional error:', error);
+        showAlert('Erro ao excluir profissional: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+    }
+}
+
+// Compatibilidade com versões anteriores.
+async function submitAddProfessional() {
+    return submitProfessionalForm();
 }
 
 async function showProfessionalServicesConfig() {
