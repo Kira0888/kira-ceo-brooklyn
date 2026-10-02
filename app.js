@@ -1958,6 +1958,94 @@ async function updateAppointmentStatus(appointmentId, newState, triggerButton = 
     }
 }
 
+// KIRA_FINANCE_STABILITY_V15
+const financialMutationRequests = new Set();
+
+async function postFinancialAction(body) {
+    if (!appState.currentSession?.access_token) {
+        throw new Error('Sua sessão não está ativa. Entre novamente.');
+    }
+
+    const send = () => fetch(INTERNAL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${appState.currentSession.access_token}`,
+            'apikey': appState.supabaseConfig.key,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    let response = await send();
+
+    if (response.status === 401) {
+        const { data, error } = await appState.supabaseClient.auth.refreshSession();
+
+        if (!error && data?.session) {
+            appState.currentSession = data.session;
+            appState.currentUser = data.session.user;
+            response = await send();
+        }
+    }
+
+    let payload = {};
+    try {
+        payload = await response.json();
+    } catch {
+        payload = {};
+    }
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new Error('Sua sessão expirou. Entre novamente.');
+        }
+
+        if (response.status === 403) {
+            throw new Error('Você não tem permissão para executar esta operação.');
+        }
+
+        throw new Error(
+            payload?.detail ||
+            payload?.error ||
+            `Erro HTTP ${response.status}`
+        );
+    }
+
+    return payload;
+}
+
+async function refreshFinancialWorkspace() {
+    appState.workspaceData = null;
+    const loaded = await loadWorkspaceData(false);
+
+    if (!loaded || !appState.workspaceData) {
+        throw new Error(
+            'Operação confirmada, mas não foi possível atualizar o painel financeiro.'
+        );
+    }
+}
+
+function setFinancialButtonBusy(button, busy, busyLabel = 'Processando...') {
+    if (!button) return;
+
+    if (busy) {
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.textContent.trim();
+        }
+        button.disabled = true;
+        button.textContent = busyLabel;
+        button.setAttribute('aria-busy', 'true');
+        return;
+    }
+
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+
+    if (button.dataset.originalLabel) {
+        button.textContent = button.dataset.originalLabel;
+    }
+}
+
 // KIRA_FINANCE_V2
 async function renderFinancialPage() {
     const content = document.getElementById('content');
@@ -2098,7 +2186,7 @@ async function renderFinancialPage() {
 
                                     const receiptDetails = orderReceipts.length ? `
                                         <details class="transaction-details">
-                                            <summary>${orderReceipts.length} lançamento(s)</summary>
+                                            <summary>${orderReceipts.length} ${orderReceipts.length === 1 ? 'lançamento' : 'lançamentos'}</summary>
                                             <div class="transaction-list">
                                                 ${orderReceipts.map(receipt => {
                                                     const alreadyRefunded = refundByReceipt[receipt.id] || 0;
@@ -2265,7 +2353,7 @@ function openCashDialog() {
                 </div>
 
                 <div class="button-group">
-                    <button class="button button-primary" onclick="submitOpenCash()">Abrir</button>
+                    <button class="button button-primary" id="open-cash-submit" onclick="submitOpenCash()">Abrir</button>
                     <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
@@ -2274,39 +2362,45 @@ function openCashDialog() {
 }
 
 async function submitOpenCash() {
+    const requestKey = 'open-cash';
+    const button = document.getElementById('open-cash-submit');
+
+    if (financialMutationRequests.has(requestKey)) return;
+
     try {
         const openingCashReais = parseFloat(document.getElementById('opening-cash').value);
-        
+
         if (isNaN(openingCashReais) || openingCashReais < 0) {
             showAlert('Digite um valor válido', 'error');
             return;
         }
 
+        financialMutationRequests.add(requestKey);
+        setFinancialButtonBusy(button, true, 'Abrindo...');
+
         const openingCashCents = Math.round(openingCashReais * 100);
 
-        const response = await fetch(INTERNAL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${appState.currentSession.access_token}`,
-                'apikey': appState.supabaseConfig.key,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'open-cash',
-                opening_cash_cents: openingCashCents
-            })
+        await postFinancialAction({
+            action: 'open-cash',
+            opening_cash_cents: openingCashCents
         });
 
-        if (!response.ok) throw new Error('Failed to open cash');
-        
-        // Refresh workspace data and re-render
-        appState.workspaceData = null;
-        await loadWorkspaceData();
+        await refreshFinancialWorkspace();
         showAlert('Caixa aberto com sucesso', 'success');
-        setTimeout(() => renderFinancialPage(), 1500);
+        await renderFinancialPage();
     } catch (error) {
         console.error('Open cash error:', error);
-        showAlert('Erro ao abrir caixa', 'error');
+        showAlert('Erro ao abrir caixa: ' + error.message, 'error');
+
+        if (/sessão expirou/i.test(error.message || '')) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        financialMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setFinancialButtonBusy(button, false);
+        }
     }
 }
 
@@ -2323,7 +2417,7 @@ function openCloseCashDialog(cashSessionId) {
                 </div>
 
                 <div class="button-group">
-                    <button class="button button-primary" onclick="submitCloseCash('${cashSessionId}')">Fechar</button>
+                    <button class="button button-primary" id="close-cash-submit" onclick="submitCloseCash('${cashSessionId}')">Fechar</button>
                     <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
@@ -2332,40 +2426,57 @@ function openCloseCashDialog(cashSessionId) {
 }
 
 async function submitCloseCash(cashSessionId) {
+    const requestKey = `close-cash:${cashSessionId}`;
+    const button = document.getElementById('close-cash-submit');
+
+    if (financialMutationRequests.has(requestKey)) return;
+
     try {
         const countedCashReais = parseFloat(document.getElementById('counted-cash').value);
-        
+
         if (isNaN(countedCashReais) || countedCashReais < 0) {
             showAlert('Digite um valor válido', 'error');
             return;
         }
 
+        financialMutationRequests.add(requestKey);
+        setFinancialButtonBusy(button, true, 'Fechando...');
+
         const countedCashCents = Math.round(countedCashReais * 100);
 
-        const response = await fetch(INTERNAL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${appState.currentSession.access_token}`,
-                'apikey': appState.supabaseConfig.key,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'close-cash',
-                cash_session_id: cashSessionId,
-                counted_cash_cents: countedCashCents
-            })
+        const payload = await postFinancialAction({
+            action: 'close-cash',
+            cash_session_id: cashSessionId,
+            counted_cash_cents: countedCashCents
         });
 
-        if (!response.ok) throw new Error('Failed to close cash');
-        
-        // Refresh workspace data and re-render
-        appState.workspaceData = null;
-        await loadWorkspaceData();
-        showAlert('Caixa fechado com sucesso', 'success');
-        setTimeout(() => renderFinancialPage(), 1500);
+        await refreshFinancialWorkspace();
+
+        const difference = Number(payload?.result?.difference_cents ?? 0);
+        const differenceText = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(difference / 100);
+
+        showAlert(
+            `Caixa fechado com sucesso. Diferença: ${differenceText}`,
+            difference === 0 ? 'success' : 'info'
+        );
+
+        await renderFinancialPage();
     } catch (error) {
         console.error('Close cash error:', error);
-        showAlert('Erro ao fechar caixa', 'error');
+        showAlert('Erro ao fechar caixa: ' + error.message, 'error');
+
+        if (/sessão expirou/i.test(error.message || '')) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        financialMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setFinancialButtonBusy(button, false);
+        }
     }
 }
 
@@ -2407,7 +2518,7 @@ function openCheckoutDialog(appointmentId, balanceCents) {
                 </div>
 
                 <div class="button-group">
-                    <button class="button button-primary" onclick="submitCheckout('${appointmentId}')">Registrar pagamento</button>
+                    <button class="button button-primary" id="checkout-submit" onclick="submitCheckout('${appointmentId}')">Registrar pagamento</button>
                     <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
@@ -2434,9 +2545,15 @@ function openCheckoutDialog(appointmentId, balanceCents) {
 }
 
 async function submitCheckout(appointmentId) {
+    const requestKey = `checkout:${appointmentId}`;
+    const button = document.getElementById('checkout-submit');
+
+    if (financialMutationRequests.has(requestKey)) return;
+
     try {
         const method = document.getElementById('payment-method').value;
         const amountReais = parseFloat(document.getElementById('payment-amount').value);
+
         if (!method || isNaN(amountReais) || amountReais <= 0) {
             showAlert('Preencha os dados corretamente', 'error');
             return;
@@ -2444,43 +2561,69 @@ async function submitCheckout(appointmentId) {
 
         const amountCents = Math.round(amountReais * 100);
         const financial = appState.workspaceData?.financial || {};
-        const openCashSession = (financial.cash || []).find(session => session.status === 'OPEN');
+        const openCashSession = (financial.cash || [])
+            .find(session => session.status === 'OPEN');
+
         if (method === 'CASH' && !openCashSession) {
-            showAlert('Abra o caixa antes de registrar pagamento em dinheiro', 'error');
+            showAlert(
+                'Abra o caixa antes de registrar pagamento em dinheiro',
+                'error'
+            );
             return;
         }
 
-        const response = await fetch(INTERNAL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${appState.currentSession.access_token}`,
-                'apikey': appState.supabaseConfig.key,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'checkout',
-                appointment_id: appointmentId,
-                discount_cents: 0,
-                payments: [{ method, amount_cents: amountCents }],
-                cash_session_id: method === 'CASH' ? openCashSession.cash_session_id : null,
-                idempotency_key: crypto.randomUUID()
-            })
+        financialMutationRequests.add(requestKey);
+        setFinancialButtonBusy(button, true, 'Registrando...');
+
+        // A mesma chave é preservada inclusive se houver retry após 401.
+        const idempotencyKey = crypto.randomUUID();
+
+        const payload = await postFinancialAction({
+            action: 'checkout',
+            appointment_id: appointmentId,
+            discount_cents: 0,
+            payments: [{
+                method,
+                amount_cents: amountCents
+            }],
+            cash_session_id:
+                method === 'CASH'
+                    ? openCashSession.cash_session_id
+                    : null,
+            idempotency_key: idempotencyKey
         });
 
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || payload.error || 'Checkout failed');
         const result = payload.result || {};
         const paid = Number(result.paid_cents || 0);
         const balance = Number(result.balance_cents || 0);
         const status = String(result.status || 'pendente');
 
-        appState.workspaceData = null;
-        await loadWorkspaceData();
-        showAlert(`Pagamento registrado. Status: ${status} | Recebido: R$ ${(paid / 100).toFixed(2)} | Saldo: R$ ${(balance / 100).toFixed(2)}`, 'success');
-        setTimeout(() => renderFinancialPage(), 700);
+        await refreshFinancialWorkspace();
+
+        const money = (cents) => new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(Number(cents || 0) / 100);
+
+        showAlert(
+            `Pagamento registrado. Status: ${status} · Recebido: ${money(paid)} · Saldo: ${money(balance)}`,
+            'success'
+        );
+
+        await renderFinancialPage();
     } catch (error) {
         console.error('Checkout error:', error);
         showAlert('Erro ao registrar pagamento: ' + error.message, 'error');
+
+        if (/sessão expirou/i.test(error.message || '')) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        financialMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setFinancialButtonBusy(button, false);
+        }
     }
 }
 
@@ -2520,7 +2663,11 @@ function openCashAdjustmentDialog(cashSessionId) {
 }
 
 async function submitCashAdjustment(cashSessionId) {
+    const requestKey = `cash-adjustment:${cashSessionId}`;
     const button = document.getElementById('cash-adjustment-submit');
+
+    if (financialMutationRequests.has(requestKey)) return;
+
     try {
         const kind = document.getElementById('cash-adjustment-kind').value;
         const amountReais = Number(document.getElementById('cash-adjustment-amount').value);
@@ -2532,37 +2679,37 @@ async function submitCashAdjustment(cashSessionId) {
         }
 
         let amountCents = Math.round(amountReais * 100);
-        if (kind !== 'ADJUSTMENT') amountCents = Math.abs(amountCents);
+        if (kind !== 'ADJUSTMENT') {
+            amountCents = Math.abs(amountCents);
+        }
 
-        if (button) button.disabled = true;
+        financialMutationRequests.add(requestKey);
+        setFinancialButtonBusy(button, true, 'Registrando...');
 
-        const response = await fetch(INTERNAL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${appState.currentSession.access_token}`,
-                'apikey': appState.supabaseConfig.key,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'cash-adjustment',
-                cash_session_id: cashSessionId,
-                kind,
-                amount_cents: amountCents,
-                note
-            })
+        await postFinancialAction({
+            action: 'cash-adjustment',
+            cash_session_id: cashSessionId,
+            kind,
+            amount_cents: amountCents,
+            note
         });
 
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || payload.error || 'Movimento não registrado');
-
-        appState.workspaceData = null;
-        await loadWorkspaceData();
+        await refreshFinancialWorkspace();
         showAlert('Movimento de caixa registrado', 'success');
-        renderFinancialPage();
+        await renderFinancialPage();
     } catch (error) {
         console.error('Cash adjustment error:', error);
         showAlert('Erro no movimento de caixa: ' + error.message, 'error');
-        if (button) button.disabled = false;
+
+        if (/sessão expirou/i.test(error.message || '')) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        financialMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setFinancialButtonBusy(button, false);
+        }
     }
 }
 
@@ -2616,7 +2763,11 @@ function openRefundDialog(receiptId, refundableCents, method) {
 }
 
 async function submitRefund(receiptId, refundableCents, method) {
+    const requestKey = `refund:${receiptId}`;
     const button = document.getElementById('refund-submit');
+
+    if (financialMutationRequests.has(requestKey)) return;
+
     try {
         const amountReais = Number(document.getElementById('refund-amount').value);
         const reason = document.getElementById('refund-reason').value.trim();
@@ -2640,35 +2791,39 @@ async function submitRefund(receiptId, refundableCents, method) {
             return;
         }
 
-        if (button) button.disabled = true;
+        financialMutationRequests.add(requestKey);
+        setFinancialButtonBusy(button, true, 'Devolvendo...');
 
-        const response = await fetch(INTERNAL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${appState.currentSession.access_token}`,
-                'apikey': appState.supabaseConfig.key,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'refund',
-                payment_receipt_id: receiptId,
-                amount_cents: amountCents,
-                reason,
-                cash_session_id: method === 'CASH' ? openCashSession.cash_session_id : null
-            })
+        await postFinancialAction({
+            action: 'refund',
+            payment_receipt_id: receiptId,
+            amount_cents: amountCents,
+            reason,
+            cash_session_id:
+                method === 'CASH'
+                    ? openCashSession.cash_session_id
+                    : null
         });
 
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || payload.error || 'Devolução não registrada');
-
-        appState.workspaceData = null;
-        await loadWorkspaceData();
-        showAlert('Devolução registrada e comissão compensada', 'success');
-        renderFinancialPage();
+        await refreshFinancialWorkspace();
+        showAlert(
+            'Devolução registrada e comissão compensada',
+            'success'
+        );
+        await renderFinancialPage();
     } catch (error) {
         console.error('Refund error:', error);
         showAlert('Erro ao registrar devolução: ' + error.message, 'error');
-        if (button) button.disabled = false;
+
+        if (/sessão expirou/i.test(error.message || '')) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        financialMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setFinancialButtonBusy(button, false);
+        }
     }
 }
 
@@ -2738,7 +2893,11 @@ function openCommissionPayoutDialog(professionalId, displayName, payableCents) {
 }
 
 async function submitCommissionPayout(professionalId, payableCents) {
+    const requestKey = `commission-payout:${professionalId}`;
     const button = document.getElementById('payout-submit');
+
+    if (financialMutationRequests.has(requestKey)) return;
+
     try {
         const amountReais = Number(document.getElementById('payout-amount').value);
         const method = document.getElementById('payout-method').value;
@@ -2758,36 +2917,37 @@ async function submitCommissionPayout(professionalId, payableCents) {
             return;
         }
 
-        if (button) button.disabled = true;
+        financialMutationRequests.add(requestKey);
+        setFinancialButtonBusy(button, true, 'Registrando...');
 
-        const response = await fetch(INTERNAL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${appState.currentSession.access_token}`,
-                'apikey': appState.supabaseConfig.key,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'commission-payout',
-                professional_id: professionalId,
-                amount_cents: amountCents,
-                method,
-                note,
-                cash_session_id: method === 'CASH' ? openCashSession.cash_session_id : null
-            })
+        await postFinancialAction({
+            action: 'commission-payout',
+            professional_id: professionalId,
+            amount_cents: amountCents,
+            method,
+            note,
+            cash_session_id:
+                method === 'CASH'
+                    ? openCashSession.cash_session_id
+                    : null
         });
 
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || payload.error || 'Repasse não registrado');
-
-        appState.workspaceData = null;
-        await loadWorkspaceData();
+        await refreshFinancialWorkspace();
         showAlert('Repasse de comissão registrado', 'success');
-        renderFinancialPage();
+        await renderFinancialPage();
     } catch (error) {
         console.error('Commission payout error:', error);
         showAlert('Erro ao registrar repasse: ' + error.message, 'error');
-        if (button) button.disabled = false;
+
+        if (/sessão expirou/i.test(error.message || '')) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        financialMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setFinancialButtonBusy(button, false);
+        }
     }
 }
 

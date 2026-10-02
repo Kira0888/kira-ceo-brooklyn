@@ -4134,3 +4134,26 @@ body.public-shell .content-inner {
         transition: none !important;
     }
 }
+
+
+/* KIRA FINANCE STABILITY V15 */
+
+#open-cash-submit[aria-busy="true"],
+#close-cash-submit[aria-busy="true"],
+#checkout-submit[aria-busy="true"],
+#cash-adjustment-submit[aria-busy="true"],
+#refund-submit[aria-busy="true"],
+#payout-submit[aria-busy="true"] {
+    cursor: wait;
+    opacity: .62;
+    transform: none !important;
+}
+
+.transaction-details summary {
+    cursor: pointer;
+    user-select: none;
+}
+
+.transaction-details summary:hover {
+    color: #d1aa5b;
+}
