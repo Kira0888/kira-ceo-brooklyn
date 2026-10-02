@@ -806,3 +806,387 @@ tbody tr:hover { background:#181818; }
     }
     .compact-action { width: 100% !important; }
 }
+
+
+/* ==========================================================
+   Brooklyn Editorial V3
+   ========================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --bb-ink:#070706;
+    --bb-gold:#bd913f;
+    --bb-gold-2:#d1aa5b;
+    --bb-paper:#eee8da;
+    --bb-line:rgba(209,170,91,.22);
+}
+body { font-family:Inter,Arial,sans-serif; }
+
+.public-shell { background:#a98443; }
+.public-shell .sidebar { display:none !important; }
+.public-shell .main-content {
+    width:100%;
+    min-width:0;
+    background:linear-gradient(135deg,#b7924f 0%,#a68142 60%,#947037 100%);
+}
+.public-shell .topbar { display:none; }
+.public-shell .content {
+    padding:clamp(1rem,3vw,2.8rem);
+    overflow-x:hidden;
+}
+.public-shell .content-inner { max-width:1380px; margin:0 auto; }
+
+.brooklyn-public { animation:brooklynReveal .55s ease both; }
+
+.public-hero {
+    min-height:min(760px,calc(100vh - 5rem));
+    display:grid;
+    grid-template-columns:minmax(0,1.28fr) minmax(390px,.82fr);
+    background:var(--bb-ink);
+    border:1px solid rgba(0,0,0,.42);
+    box-shadow:0 28px 70px rgba(0,0,0,.34);
+    overflow:hidden;
+}
+.public-hero-photo {
+    position:relative;
+    min-height:680px;
+    overflow:hidden;
+    isolation:isolate;
+}
+.public-hero-photo > img {
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:48% center;
+    filter:sepia(.8) saturate(.75) contrast(1.08) brightness(.68);
+    transform:scale(1.015);
+    transition:transform .9s cubic-bezier(.2,.7,.2,1),filter .6s ease;
+}
+.public-hero:hover .public-hero-photo > img {
+    transform:scale(1.035);
+    filter:sepia(.72) saturate(.82) contrast(1.1) brightness(.72);
+}
+.public-hero-photo-overlay {
+    position:absolute;
+    inset:0;
+    z-index:1;
+    background:
+        linear-gradient(90deg,rgba(74,48,15,.04),rgba(0,0,0,.18)),
+        linear-gradient(0deg,rgba(4,4,4,.72) 0%,transparent 42%),
+        rgba(170,126,53,.16);
+    mix-blend-mode:multiply;
+    pointer-events:none;
+}
+.photo-brand,.photo-location,.photo-index { position:absolute; z-index:2; }
+.photo-brand {
+    left:clamp(1.3rem,3vw,2.6rem);
+    top:clamp(1.3rem,3vw,2.6rem);
+    display:flex;
+    align-items:center;
+    gap:.72rem;
+    color:var(--bb-paper);
+}
+.photo-crown { color:var(--bb-gold-2); font-size:2rem; line-height:1; }
+.photo-brand div { display:grid; line-height:.92; }
+.photo-brand strong { font-size:.65rem; letter-spacing:.27em; }
+.photo-brand span:last-child {
+    font-family:"Roboto Slab",Georgia,serif;
+    font-size:1.12rem;
+    letter-spacing:.05em;
+}
+.photo-location {
+    left:clamp(1.3rem,3vw,2.6rem);
+    bottom:clamp(1.5rem,3vw,2.8rem);
+    display:grid;
+    color:var(--bb-paper);
+}
+.photo-location span { font-size:.62rem; letter-spacing:.2em; color:#d6c7a4; }
+.photo-location strong {
+    font-family:"Roboto Slab",Georgia,serif;
+    font-size:clamp(2rem,4vw,3.7rem);
+    line-height:.95;
+    margin:.2rem 0 .4rem;
+}
+.photo-location small { color:#c5baa3; font-size:.78rem; }
+.photo-index {
+    right:1.4rem;
+    bottom:.4rem;
+    font-family:"Roboto Slab",Georgia,serif;
+    color:rgba(255,255,255,.075);
+    font-size:clamp(7rem,14vw,13rem);
+    line-height:.8;
+    letter-spacing:-.09em;
+}
+
+.public-hero-copy {
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    min-width:0;
+    padding:clamp(1.5rem,3.4vw,3.6rem);
+    border-left:1px solid var(--bb-line);
+    background:
+        radial-gradient(circle at 100% 0%,rgba(189,145,63,.08),transparent 30rem),
+        var(--bb-ink);
+}
+.hero-mini-nav {
+    display:flex;
+    align-items:center;
+    gap:.72rem;
+    color:#8e887d;
+    font-size:.62rem;
+    letter-spacing:.18em;
+    font-weight:700;
+}
+.hero-mini-dot { width:4px; height:4px; border-radius:50%; background:var(--bb-gold); }
+.hero-copy-main { align-self:center; padding:2.4rem 0; }
+.hero-eyebrow {
+    display:inline-block;
+    color:var(--bb-gold-2);
+    font-size:.67rem;
+    letter-spacing:.22em;
+    font-weight:700;
+    margin-bottom:1.25rem;
+}
+.hero-copy-main h1,
+.booking-editorial-intro h2 {
+    margin:0;
+    font-family:"Roboto Slab",Georgia,serif;
+    font-weight:900;
+    color:var(--bb-paper);
+    text-transform:uppercase;
+    letter-spacing:-.055em;
+}
+.hero-copy-main h1 {
+    font-size:clamp(3rem,5.7vw,6.4rem);
+    line-height:.82;
+    max-width:8ch;
+}
+.hero-copy-main h1 em,
+.booking-editorial-intro h2 em { color:var(--bb-gold-2); font-style:normal; }
+.hero-copy-main p {
+    max-width:37ch;
+    color:#aaa397;
+    margin:1.5rem 0 0;
+    font-size:.93rem;
+    line-height:1.65;
+}
+.hero-cta-row {
+    display:flex;
+    align-items:center;
+    gap:1.35rem;
+    margin-top:1.7rem;
+    flex-wrap:wrap;
+}
+.editorial-cta {
+    display:inline-flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1.7rem;
+    min-width:190px;
+    padding:.86rem 1rem;
+    background:var(--bb-gold-2);
+    color:#111;
+    text-decoration:none;
+    border:1px solid var(--bb-gold-2);
+    font-size:.69rem;
+    letter-spacing:.12em;
+    font-weight:800;
+    transition:transform .2s ease,background .2s ease;
+}
+.editorial-cta:hover { background:#e0bd70; transform:translateY(-2px); }
+.editorial-link {
+    color:#c7c0b5;
+    text-decoration:none;
+    font-size:.66rem;
+    letter-spacing:.13em;
+    font-weight:700;
+    border-bottom:1px solid rgba(255,255,255,.28);
+    padding-bottom:.24rem;
+}
+.hero-meta {
+    border-top:1px solid var(--bb-line);
+    padding-top:1.2rem;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1.3rem;
+}
+.hero-meta > div {
+    display:grid;
+    grid-template-columns:auto 1fr;
+    column-gap:.7rem;
+}
+.hero-meta span {
+    color:var(--bb-gold-2);
+    font-family:"Roboto Slab",Georgia,serif;
+    grid-row:1 / 3;
+}
+.hero-meta strong { color:#e3ddd0; font-size:.64rem; letter-spacing:.13em; }
+.hero-meta small { color:#777269; margin-top:.2rem; }
+
+.public-feature-rail {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    background:#0a0a09;
+    border:1px solid rgba(0,0,0,.45);
+    border-top:0;
+    box-shadow:0 16px 38px rgba(0,0,0,.18);
+}
+.public-feature-rail > div {
+    min-height:128px;
+    padding:1.2rem 1.25rem;
+    display:grid;
+    align-content:center;
+    border-right:1px solid var(--bb-line);
+}
+.public-feature-rail > div:last-child { border-right:0; }
+.public-feature-rail span {
+    color:var(--bb-gold);
+    font-family:"Roboto Slab",Georgia,serif;
+    font-size:.7rem;
+    margin-bottom:.4rem;
+}
+.public-feature-rail strong { color:#e7dfd0; font-size:.72rem; letter-spacing:.12em; }
+.public-feature-rail small { color:#78736a; margin-top:.35rem; }
+
+.booking-editorial-layout {
+    display:grid;
+    grid-template-columns:minmax(270px,.72fr) minmax(0,1.28fr);
+    min-height:650px;
+    background:var(--bb-ink);
+    border:1px solid rgba(0,0,0,.45);
+    box-shadow:0 28px 70px rgba(0,0,0,.3);
+}
+.booking-editorial-intro {
+    padding:clamp(1.5rem,4vw,3.5rem);
+    background:linear-gradient(180deg,rgba(189,145,63,.08),transparent 38%),#0a0a09;
+    border-right:1px solid var(--bb-line);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+.booking-editorial-intro h2 { font-size:clamp(3.1rem,6vw,6.8rem); line-height:.78; }
+.booking-editorial-intro > p {
+    color:#989188;
+    line-height:1.6;
+    max-width:29ch;
+    margin-top:1.4rem;
+}
+.booking-aside-meta {
+    margin-top:auto;
+    padding-top:3rem;
+    display:grid;
+    color:#8b857b;
+    font-size:.62rem;
+    letter-spacing:.13em;
+}
+.booking-aside-meta strong { color:#c8a75d; margin-top:.3rem; }
+.booking-editorial-card {
+    padding:clamp(1.5rem,4vw,3.6rem);
+    background:#11110f;
+}
+.booking-card-head {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:1rem;
+    border-bottom:1px solid var(--bb-line);
+    padding-bottom:1.2rem;
+    margin-bottom:2rem;
+}
+.booking-card-head span { color:var(--bb-gold-2); font-size:.62rem; letter-spacing:.18em; }
+.booking-card-head h3 {
+    color:#eee7d8;
+    margin:.35rem 0 0;
+    font-family:"Roboto Slab",Georgia,serif;
+    font-size:clamp(1.4rem,2.6vw,2.5rem);
+}
+.booking-back { color:#89847c; font-size:.64rem; letter-spacing:.11em; text-decoration:none; }
+.booking-form-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1rem 1.25rem;
+}
+.booking-editorial-card .form-group { margin:0; }
+.booking-editorial-card .form-group label {
+    color:#a59f94;
+    font-size:.68rem;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    margin-bottom:.48rem;
+}
+.booking-editorial-card .form-group input,
+.booking-editorial-card .form-group select {
+    min-height:50px;
+    background:#090909;
+    border:1px solid #2b2925;
+    border-radius:0;
+    color:#eee7da;
+}
+.booking-editorial-card .form-group input:focus,
+.booking-editorial-card .form-group select:focus {
+    border-color:var(--bb-gold);
+    box-shadow:0 0 0 1px var(--bb-gold);
+}
+.booking-customer-block { margin-top:2rem; }
+.booking-divider { border-top:1px solid var(--bb-line); padding:1.2rem 0; }
+.booking-divider span { color:var(--bb-gold-2); font-size:.62rem; letter-spacing:.16em; }
+.booking-actions { margin-top:1.5rem; }
+.editorial-button { cursor:pointer; font-family:inherit; }
+
+.public-shell .demo-banner {
+    max-width:1380px;
+    margin:0 auto 1rem;
+    background:rgba(9,9,8,.92);
+    color:#c7a65d;
+    border:1px solid rgba(209,170,91,.32);
+    border-radius:0;
+    font-size:.78rem;
+}
+
+@keyframes brooklynReveal {
+    from { opacity:0; transform:translateY(8px); }
+    to { opacity:1; transform:none; }
+}
+
+@media (max-width:980px) {
+    .public-hero { grid-template-columns:1fr; }
+    .public-hero-photo { min-height:460px; }
+    .public-hero-copy { border-left:0; border-top:1px solid var(--bb-line); }
+    .hero-copy-main h1 { max-width:10ch; font-size:clamp(3.3rem,10vw,6rem); }
+    .public-feature-rail { grid-template-columns:1fr 1fr; }
+    .booking-editorial-layout { grid-template-columns:1fr; }
+    .booking-editorial-intro {
+        min-height:380px;
+        border-right:0;
+        border-bottom:1px solid var(--bb-line);
+    }
+}
+
+@media (max-width:640px) {
+    .public-shell .content { padding:0; }
+    .public-hero { min-height:100vh; border:0; box-shadow:none; }
+    .public-hero-photo { min-height:48vh; }
+    .public-hero-copy { padding:1.35rem 1.15rem 1.6rem; }
+    .hero-copy-main { padding:1.7rem 0; }
+    .hero-copy-main h1 { font-size:clamp(3.2rem,17vw,5.2rem); }
+    .hero-meta { grid-template-columns:1fr; }
+    .public-feature-rail { grid-template-columns:1fr; border-left:0; border-right:0; }
+    .public-feature-rail > div { border-right:0; border-bottom:1px solid var(--bb-line); }
+    .booking-editorial-layout { border:0; box-shadow:none; }
+    .booking-editorial-intro { min-height:315px; padding:1.5rem 1.15rem; }
+    .booking-editorial-card { padding:1.5rem 1.15rem; }
+    .booking-form-grid { grid-template-columns:1fr; }
+    .booking-card-head { flex-direction:column; }
+    .editorial-cta { width:100%; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+    .brooklyn-public,
+    .public-hero-photo > img,
+    .editorial-cta {
+        animation:none !important;
+        transition:none !important;
+    }
+}

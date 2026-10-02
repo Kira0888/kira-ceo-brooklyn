@@ -310,6 +310,10 @@ function navigateTo(page) {
 
 function renderPage(page) {
     const content = document.getElementById('content');
+
+    // BROOKLYN_EDITORIAL_V3
+    const publicPage = !appState.currentUser && ['home', 'agendamento', 'localizacao'].includes(page);
+    document.body.classList.toggle('public-shell', publicPage);
     
     // Check authentication for protected pages
     const protectedPages = ['agenda', 'financeiro', 'relatorios', 'configuracoes'];
@@ -373,46 +377,82 @@ function renderPage(page) {
 
 function renderHomePage() {
     const content = document.getElementById('content');
-    updateTopbar('Início', 'Kira-CEO Brooklyn');
+    updateTopbar('Início', 'Barbearia Brooklyn · QS 121');
 
     content.innerHTML = `
-        <div class="content-inner">
-            <section class="brand-hero">
-                <div class="brand-eyebrow">BARBEARIA BROOKLYN · QS 121</div>
-                <div class="brand-hero-grid">
-                    <div>
-                        <h1>Agenda, atendimento e gestão em uma operação só.</h1>
-                        <p>Experiência digital da Barbearia Brooklyn com gestão Kira-CEO.</p>
-                        <div class="brand-actions">
-                            <a href="#agendamento" class="button button-primary">Marcar horário</a>
-                            <a href="#acesso-interno" class="button button-secondary">Acesso da equipe</a>
+        <div class="content-inner brooklyn-public">
+            <section class="public-hero" aria-label="Barbearia Brooklyn">
+                <div class="public-hero-photo">
+                    <img src="./assets/brooklyn-hero.jpg" alt="Barbeiro realizando um corte">
+                    <div class="public-hero-photo-overlay"></div>
+
+                    <div class="photo-brand">
+                        <span class="photo-crown">♛</span>
+                        <div>
+                            <strong>BARBEARIA</strong>
+                            <span>BROOKLYN</span>
                         </div>
                     </div>
-                    <div class="brand-seal" aria-label="Barbearia Brooklyn">
-                        <div class="brand-crown">♛</div>
-                        <strong>BROOKLYN</strong>
-                        <span>BARBEARIA</span>
+
+                    <div class="photo-location">
+                        <span>UNIDADE</span>
+                        <strong>QS 121</strong>
+                        <small>Samambaia · Brasília/DF</small>
+                    </div>
+
+                    <div class="photo-index" aria-hidden="true">121</div>
+                </div>
+
+                <div class="public-hero-copy">
+                    <div class="hero-mini-nav">
+                        <span>BROOKLYN / 121</span>
+                        <span class="hero-mini-dot"></span>
+                        <span>KIRA-CEO</span>
+                    </div>
+
+                    <div class="hero-copy-main">
+                        <span class="hero-eyebrow">AGENDAMENTO DIGITAL</span>
+                        <h1>SEU HORÁRIO.<br>SEU CORTE.<br><em>BROOKLYN.</em></h1>
+                        <p>
+                            Agende seu atendimento na unidade QS 121 com uma experiência direta,
+                            rápida e feita para funcionar bem no celular.
+                        </p>
+
+                        <div class="hero-cta-row">
+                            <a href="#agendamento" class="editorial-cta">
+                                <span>AGENDAR AGORA</span>
+                                <b>↗</b>
+                            </a>
+                            <a href="#localizacao" class="editorial-link">COMO CHEGAR</a>
+                        </div>
+                    </div>
+
+                    <div class="hero-meta">
+                        <div>
+                            <span>01</span>
+                            <strong>AGENDAMENTO</strong>
+                            <small>Serviço, profissional e horário.</small>
+                        </div>
+                        <div>
+                            <span>02</span>
+                            <strong>GESTÃO</strong>
+                            <small>Agenda, caixa e operação no mesmo sistema.</small>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <div class="card">
-                <div class="card-title">Operação completa</div>
-                <ul style="list-style: none;">
-                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">✓ Agendamento online</li>
-                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">✓ Gerenciamento de agenda</li>
-                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">✓ Controle financeiro</li>
-                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">✓ Relatórios operacionais</li>
-                    <li style="padding: 0.5rem 0;">✓ Localização</li>
-                </ul>
-            </div>
+            <section class="public-feature-rail" aria-label="Recursos">
+                <div><span>01</span><strong>AGENDA</strong><small>Horários e atendimento organizados.</small></div>
+                <div><span>02</span><strong>CAIXA</strong><small>Recebimentos e movimentos registrados.</small></div>
+                <div><span>03</span><strong>COMISSÕES</strong><small>Apuração vinculada aos atendimentos.</small></div>
+                <div><span>04</span><strong>RELATÓRIOS</strong><small>Visão operacional e financeira.</small></div>
+            </section>
 
-            <div id="booking-status" style="display: none;">
-            </div>
+            <div id="booking-status" style="display:none;"></div>
         </div>
     `;
 
-    // Check for existing booking
     checkExistingBooking();
 }
 
@@ -748,45 +788,71 @@ async function loadBookingCatalog() {
 
 function getBookingHTML() {
     return `
-        <div class="card">
-            <div class="card-title">Agendar serviço</div>
-            
-            <div class="form-group">
-                <label>Serviço</label>
-                <select id="service-select">
-                    <option value="">Carregando...</option>
-                </select>
-            </div>
+        <div class="booking-editorial-layout">
+            <aside class="booking-editorial-intro">
+                <span class="hero-eyebrow">RESERVA / QS 121</span>
+                <h2>MARQUE<br>SEU<br><em>HORÁRIO.</em></h2>
+                <p>Selecione serviço, profissional, data e um horário disponível.</p>
 
-            <div class="form-group">
-                <label>Profissional</label>
-                <select id="professional-select">
-                    <option value="">Selecione um serviço primeiro</option>
-                </select>
-            </div>
+                <div class="booking-aside-meta">
+                    <span>BARBEARIA BROOKLYN</span>
+                    <strong>SAMAMBAIA · BRASÍLIA/DF</strong>
+                </div>
+            </aside>
 
-            <div class="form-group">
-                <label>Data</label>
-                <input type="date" id="booking-date" min="${getTodayDate()}">
-            </div>
+            <div class="booking-editorial-card">
+                <div class="booking-card-head">
+                    <div>
+                        <span>AGENDAMENTO</span>
+                        <h3>Escolha seu atendimento</h3>
+                    </div>
+                    <a href="#home" class="booking-back">← VOLTAR</a>
+                </div>
 
-            <div class="form-group" id="time-container" style="display:none;">
-                <label>Horário</label>
-                <select id="time-select">
-                    <option value="">Selecione um horário</option>
-                </select>
-            </div>
+                <div class="booking-form-grid">
+                    <div class="form-group">
+                        <label>01 / Serviço</label>
+                        <select id="service-select"><option value="">Carregando...</option></select>
+                    </div>
 
-            <div class="form-group" id="customer-form" style="display:none;">
-                <label>Nome completo</label>
-                <input type="text" id="customer-name" placeholder="Seu nome">
+                    <div class="form-group">
+                        <label>02 / Profissional</label>
+                        <select id="professional-select">
+                            <option value="">Selecione um serviço primeiro</option>
+                        </select>
+                    </div>
 
-                <label style="margin-top: 1rem;">Telefone</label>
-                <input type="tel" id="customer-phone" placeholder="(61) 99999-9999">
+                    <div class="form-group">
+                        <label>03 / Data</label>
+                        <input type="date" id="booking-date" min="${getTodayDate()}">
+                    </div>
 
-                <div class="button-group" style="margin-top: 1.5rem;">
-                    <button class="button button-primary" id="confirm-booking">Confirmar agendamento</button>
-                    <button class="button button-secondary" id="cancel-booking">Cancelar</button>
+                    <div class="form-group" id="time-container" style="display:none;">
+                        <label>04 / Horário</label>
+                        <select id="time-select"><option value="">Selecione um horário</option></select>
+                    </div>
+                </div>
+
+                <div class="booking-customer-block" id="customer-form" style="display:none;">
+                    <div class="booking-divider"><span>DADOS DO CLIENTE</span></div>
+
+                    <div class="booking-form-grid">
+                        <div class="form-group">
+                            <label>Nome completo</label>
+                            <input type="text" id="customer-name" placeholder="Seu nome">
+                        </div>
+                        <div class="form-group">
+                            <label>Telefone</label>
+                            <input type="tel" id="customer-phone" placeholder="(61) 99999-9999">
+                        </div>
+                    </div>
+
+                    <div class="button-group booking-actions">
+                        <button class="editorial-cta editorial-button" id="confirm-booking">
+                            <span>CONFIRMAR AGENDAMENTO</span><b>↗</b>
+                        </button>
+                        <button class="button button-secondary" id="cancel-booking">Cancelar</button>
+                    </div>
                 </div>
             </div>
         </div>
