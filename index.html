@@ -6,11 +6,11 @@
   <meta name="description" content="Kira-CEO Brooklyn — sistema de gestão da Barbearia Brooklyn">
   <meta name="theme-color" content="#0b0b0b">
   <title>Barbearia Brooklyn · Kira-CEO</title>
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./styles.css?v=13">
 </head>
 <body>
   <div class="app-container">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <div class="sidebar-brand-mark">♛</div>
@@ -36,7 +36,20 @@
     <div class="main-content">
       <header class="topbar">
         <div><div class="topbar-title">Início</div><div class="topbar-status">Brooklyn · QS 121</div></div>
-        <button id="mobile-menu-toggle" aria-label="Abrir menu" style="display:none;background:none;border:0;font-size:1.5rem;cursor:pointer">≡</button>
+        <button
+          id="mobile-menu-toggle"
+          class="mobile-menu-toggle"
+          type="button"
+          aria-label="Abrir menu de navegação"
+          aria-controls="sidebar"
+          aria-expanded="false"
+        >
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path d="M4 7H20"></path>
+            <path d="M4 12H20"></path>
+            <path d="M4 17H20"></path>
+          </svg>
+        </button>
       </header>
       <main class="content"><div id="content"></div></main>
     </div>
@@ -46,16 +59,51 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3"></script>
   <script src="./app.js?v=17"></script>
   <script>
-    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-    const sidebar = document.querySelector('.sidebar');
-    const syncMobileMenu = () => {
-      const mobile = window.innerWidth <= 768;
-      mobileMenuToggle.style.display = mobile ? 'block' : 'none';
-      if (!mobile) sidebar.classList.remove('mobile-open');
-    };
-    mobileMenuToggle.addEventListener('click', () => sidebar.classList.toggle('mobile-open'));
-    window.addEventListener('resize', syncMobileMenu);
-    syncMobileMenu();
+    document.addEventListener('DOMContentLoaded', () => {
+      const menuButton = document.getElementById('mobile-menu-toggle');
+      const sidebar = document.getElementById('sidebar');
+
+      if (!menuButton || !sidebar) return;
+
+      const setMenuState = (open) => {
+        sidebar.classList.toggle('sidebar-open', open);
+        document.body.classList.toggle('sidebar-menu-open', open);
+
+        menuButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+        menuButton.setAttribute(
+          'aria-label',
+          open ? 'Fechar menu de navegação' : 'Abrir menu de navegação'
+        );
+      };
+
+      menuButton.addEventListener('click', () => {
+        setMenuState(!sidebar.classList.contains('sidebar-open'));
+      });
+
+      sidebar.querySelectorAll('.nav-item').forEach((link) => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth <= 768) {
+            setMenuState(false);
+          }
+        });
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (
+          event.key === 'Escape' &&
+          sidebar.classList.contains('sidebar-open')
+        ) {
+          setMenuState(false);
+          menuButton.focus();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+          setMenuState(false);
+        }
+      });
+    });
   </script>
 </body>
 </html>
