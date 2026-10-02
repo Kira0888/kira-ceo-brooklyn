@@ -609,7 +609,7 @@ tbody tr:last-child td {
 
 
 /* Kira-CEO — refinamentos operacionais */
-#nav-configuracoes { display: none; }
+
 .nav-item[aria-current="page"] { font-weight: 700; }
 .button:disabled { opacity: .48; cursor: not-allowed; }
 input[type="number"] { font-variant-numeric: tabular-nums; }
