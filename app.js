@@ -199,6 +199,9 @@ function setupAuthStateListener() {
         }
 
         if (event === 'SIGNED_IN') {
+            // The explicit login owns workspace loading and navigation.
+            if (loginRequestPending) return;
+
             if (appState.passwordRecoveryMode) {
                 navigateTo('redefinir-senha');
                 return;
@@ -1751,7 +1754,13 @@ async function handlePasswordUpdate() {
     }
 }
 
+// KIRA_DIRECT_LOGIN_V24_2
+let loginRequestPending = false;
+
 async function handleLogin() {
+    if (loginRequestPending) return;
+    const button = document.getElementById('login-btn');
+
     try {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
@@ -1759,6 +1768,12 @@ async function handleLogin() {
         if (!email || !password) {
             showMessage('Preencha e-mail e senha', 'error');
             return;
+        }
+
+        loginRequestPending = true;
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Entrando...';
         }
 
         const { data, error } = await appState.supabaseClient.auth.signInWithPassword({ email, password });
@@ -1776,11 +1791,16 @@ async function handleLogin() {
             return;
         }
 
-        showAlert('Bem-vindo à gestão Brooklyn', 'success');
-        setTimeout(() => navigateTo('home'), 350);
+        navigateTo('home');
     } catch (error) {
         console.error('Login error:', error);
         showMessage('Erro ao fazer login: ' + error.message, 'error');
+    } finally {
+        loginRequestPending = false;
+        if (button && document.body.contains(button)) {
+            button.disabled = false;
+            button.textContent = 'Entrar';
+        }
     }
 }
 
@@ -1795,33 +1815,24 @@ function renderInitialOwnerActivation() {
 // O proprietário já possui membership OWNER persistente no banco.
 
 function renderLoggedInAuth() {
-    const content = document.getElementById('content');
-    const userEmail = sanitizeText(appState.currentUser?.email || '');
-    const isOwner = appState.userRole === 'OWNER';
+    if (!appState.currentUser || !appState.currentSession) {
+        renderLoginForm();
+        return;
+    }
 
-    updateTopbar('Acesso interno', isOwner ? 'Conta de manutenção · OWNER' : 'Área da equipe');
+    if (appState.passwordRecoveryMode) {
+        navigateTo('redefinir-senha');
+        return;
+    }
 
-    content.innerHTML = `
-        <div class="content-inner">
-            <div class="card" style="max-width:620px;margin:2rem auto;">
-                <span style="display:block;color:#d1aa5b;font-size:.65rem;letter-spacing:.16em;margin-bottom:.7rem;">
-                    ${isOwner ? 'CONTA DE MANUTENÇÃO' : 'SESSÃO ATIVA'}
-                </span>
-                <div class="card-title">
-                    ${isOwner ? 'Acesso administrativo permanente' : 'Acesso da equipe'}
-                </div>
-                <p style="margin-top:.8rem;">${userEmail}</p>
-                <p>Perfil: <strong>${sanitizeText(appState.userRole || '—')}</strong></p>
-                <div class="button-group" style="margin-top:1rem;">
-                    <button class="button button-primary" id="dashboard-btn">Abrir painel</button>
-                    <button class="button button-danger" id="logout-btn">Sair</button>
-                </div>
-            </div>
-        </div>
-    `;
+    if (!appState.userRole) {
+        renderAccessRecoveryState();
+        return;
+    }
 
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    document.getElementById('dashboard-btn').addEventListener('click', () => navigateTo('home'));
+    if (appState.currentPage === 'acesso-interno') {
+        navigateTo('home');
+    }
 }
 
 async function handleLogout() {
