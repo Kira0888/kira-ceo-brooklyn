@@ -4960,127 +4960,750 @@ async function submitAddProfessionalHours() {
     return showProfessionalHoursConfig();
 }
 
+// KIRA_CONFIG_COMMISSION_BOOKING_V20
 async function showCommissionRulesConfig() {
-    if (appState.userRole !== 'OWNER') { showAlert('Acesso negado', 'error'); return; }
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Acesso negado', 'error');
+        return;
+    }
+
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando comissões...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando comissões...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const [{ data: professionals, error: profError }, { data: rules, error: rulesError }] = await Promise.all([
-            appState.supabaseClient.from('professionals').select('id,display_name,active').eq('organization_id', orgId),
-            appState.supabaseClient.from('professional_commission_rules').select('professional_id,rate_bps,basis,active').eq('organization_id', orgId)
+        const [
+            { data: professionals, error: profError },
+            { data: rules, error: rulesError }
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active')
+                .eq('organization_id', orgId)
+                .eq('active', true)
+                .order('display_name'),
+
+            appState.supabaseClient
+                .from('professional_commission_rules')
+                .select('professional_id,rate_bps,basis,active')
+                .eq('organization_id', orgId)
         ]);
-        if (profError) throw profError; if (rulesError) throw rulesError;
-        const pMap = Object.fromEntries((professionals || []).map(p => [p.id, p.display_name]));
+
+        if (profError) throw profError;
+        if (rulesError) throw rulesError;
+
+        const ruleMap = Object.fromEntries(
+            (rules || []).map(rule => [rule.professional_id, rule])
+        );
+
         configContent.innerHTML = `
-            <div class="card"><div class="card-title">Regras de comissão</div>
-            <button class="button button-primary" onclick="showAddCommissionRuleForm()" style="margin-bottom:1rem">Adicionar/editar regra</button>
-            ${(rules || []).length ? `<table><thead><tr><th>Profissional</th><th>Taxa</th><th>Base</th><th>Ativa</th></tr></thead><tbody>${(rules || []).map(r => `<tr><td>${sanitizeText(pMap[r.professional_id] || '—')}</td><td>${((r.rate_bps || 0)/100).toFixed(2)}%</td><td>${r.basis === 'RECEIVED' ? 'Valor recebido' : 'Total do serviço'}</td><td>${r.active ? 'Sim' : 'Não'}</td></tr>`).join('')}</tbody></table>` : '<p class="text-muted">Nenhuma regra cadastrada</p>'}
-            </div>`;
+            <div class="card config-list-card">
+                <div class="config-list-head">
+                    <div>
+                        <span>COMISSIONAMENTO</span>
+                        <div class="card-title">Regras por profissional</div>
+                        <p>
+                            Configure percentual, base de cálculo e status
+                            individualmente para cada profissional ativo.
+                        </p>
+                    </div>
+                </div>
+
+                ${(professionals || []).length ? `
+                    <div class="config-commission-groups">
+                        ${(professionals || []).map(professional => {
+                            const rule = ruleMap[professional.id] || null;
+                            const rate = rule
+                                ? (Number(rule.rate_bps || 0) / 100).toFixed(2)
+                                : '0.00';
+
+                            const basisLabel =
+                                rule?.basis === 'SERVICE_TOTAL'
+                                    ? 'Total do serviço'
+                                    : 'Valor recebido';
+
+                            return `
+                                <section class="config-commission-row">
+                                    <div class="config-commission-person">
+                                        <span>PROFISSIONAL</span>
+                                        <strong>${sanitizeText(professional.display_name)}</strong>
+                                    </div>
+
+                                    <div class="config-commission-value">
+                                        <span>TAXA</span>
+                                        <strong>${rate}%</strong>
+                                    </div>
+
+                                    <div class="config-commission-value">
+                                        <span>BASE</span>
+                                        <strong>${sanitizeText(basisLabel)}</strong>
+                                    </div>
+
+                                    <div>
+                                        <span class="config-status ${rule?.active ? 'is-active' : 'is-inactive'}">
+                                            ${rule?.active ? 'ATIVA' : 'INATIVA'}
+                                        </span>
+                                    </div>
+
+                                    <div class="config-row-actions">
+                                        <button
+                                            class="button button-secondary compact-action"
+                                            onclick="showCommissionRuleForm('${professional.id}')"
+                                        >
+                                            ${rule ? 'Editar' : 'Configurar'}
+                                        </button>
+                                    </div>
+                                </section>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : `
+                    <div class="ops-empty">
+                        <strong>Nenhum profissional ativo</strong>
+                        <span>Cadastre ou restaure um profissional para configurar comissões.</span>
+                    </div>
+                `}
+
+                <div class="config-info-note">
+                    <strong>Base de cálculo</strong>
+                    <span>
+                        “Valor recebido” calcula sobre o que efetivamente entrou.
+                        “Total do serviço” calcula sobre o valor integral do serviço.
+                    </span>
+                </div>
+            </div>
+        `;
     } catch (error) {
         console.error('Load commission rules config error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar comissões: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar comissões: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
 }
 
-async function showAddCommissionRuleForm() {
+async function showCommissionRuleForm(professionalId) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Acesso negado', 'error');
+        return;
+    }
+
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando regra...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const { data: professionals, error } = await appState.supabaseClient.from('professionals').select('id,display_name,active').eq('organization_id', orgId).eq('active', true).order('display_name');
-        if (error) throw error;
+        const [
+            { data: professional, error: profError },
+            { data: rule, error: ruleError }
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active')
+                .eq('organization_id', orgId)
+                .eq('id', professionalId)
+                .eq('active', true)
+                .maybeSingle(),
+
+            appState.supabaseClient
+                .from('professional_commission_rules')
+                .select('professional_id,rate_bps,basis,active')
+                .eq('organization_id', orgId)
+                .eq('professional_id', professionalId)
+                .maybeSingle()
+        ]);
+
+        if (profError) throw profError;
+        if (ruleError) throw ruleError;
+
+        if (!professional) {
+            showAlert('Profissional não encontrado ou inativo', 'error');
+            return showCommissionRulesConfig();
+        }
+
+        const rate = rule
+            ? (Number(rule.rate_bps || 0) / 100).toFixed(2)
+            : '50.00';
+
         configContent.innerHTML = `
-            <div class="card" style="max-width:500px"><div class="card-title">Regra de comissão</div>
-            <div class="form-group"><label>Profissional</label><select id="prof-commission-select"><option value="">Selecione</option>${(professionals || []).map(p => `<option value="${p.id}">${sanitizeText(p.display_name)}</option>`).join('')}</select></div>
-            <div class="form-group"><label>Taxa (%)</label><input type="number" id="commission-rate" placeholder="10" step="0.01" min="0" max="100"></div>
-            <div class="form-group"><label>Base de cálculo</label><select id="commission-basis"><option value="">Selecione</option><option value="RECEIVED">Valor recebido</option><option value="SERVICE_TOTAL">Total do serviço</option></select></div>
-            <div class="form-group"><label><input type="checkbox" id="commission-active" checked> Ativa</label></div>
-            <div class="button-group"><button class="button button-primary" onclick="submitAddCommissionRule()">Salvar</button><button class="button button-secondary" onclick="showCommissionRulesConfig()">Cancelar</button></div>
-            </div>`;
+            <div class="card form-card config-edit-card">
+                <div class="config-form-heading">
+                    <span>COMISSÃO</span>
+                    <div class="card-title">
+                        ${sanitizeText(professional.display_name)}
+                    </div>
+                    <p class="text-muted">
+                        A alteração vale para novos cálculos. Registros financeiros
+                        já lançados permanecem preservados.
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label>Taxa (%)</label>
+                    <input
+                        type="number"
+                        id="commission-rate"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value="${rate}"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Base de cálculo</label>
+                    <select id="commission-basis">
+                        <option
+                            value="RECEIVED"
+                            ${!rule || rule.basis === 'RECEIVED' ? 'selected' : ''}
+                        >
+                            Valor recebido
+                        </option>
+
+                        <option
+                            value="SERVICE_TOTAL"
+                            ${rule?.basis === 'SERVICE_TOTAL' ? 'selected' : ''}
+                        >
+                            Total do serviço
+                        </option>
+                    </select>
+                </div>
+
+                <label class="config-toggle-row">
+                    <input
+                        type="checkbox"
+                        id="commission-active"
+                        ${!rule || rule.active ? 'checked' : ''}
+                    >
+                    <span>
+                        <strong>Regra ativa</strong>
+                        <small>
+                            Se desativada, novos cálculos deixam de gerar comissão
+                            para este profissional.
+                        </small>
+                    </span>
+                </label>
+
+                <div class="button-group">
+                    <button
+                        class="button button-primary"
+                        id="commission-save-submit"
+                        onclick="submitCommissionRule('${professional.id}')"
+                    >
+                        Salvar regra
+                    </button>
+
+                    <button
+                        class="button button-secondary"
+                        onclick="showCommissionRulesConfig()"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
     } catch (error) {
         console.error('Load commission rule form error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar formulário: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar regra: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
+}
+
+async function submitCommissionRule(professionalId) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Acesso negado', 'error');
+        return;
+    }
+
+    const requestKey = `commission-rule:${professionalId}`;
+    const button = document.getElementById('commission-save-submit');
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const ratePercent =
+            Number(document.getElementById('commission-rate').value);
+
+        const basis =
+            document.getElementById('commission-basis').value;
+
+        const active =
+            document.getElementById('commission-active').checked;
+
+        const orgId =
+            appState.workspaceData?.organization?.id;
+
+        if (
+            !Number.isFinite(ratePercent) ||
+            ratePercent < 0 ||
+            ratePercent > 100
+        ) {
+            showAlert('A taxa deve ficar entre 0% e 100%', 'error');
+            return;
+        }
+
+        if (!['RECEIVED', 'SERVICE_TOTAL'].includes(basis)) {
+            showAlert('Selecione uma base de cálculo válida', 'error');
+            return;
+        }
+
+        configurationMutationRequests.add(requestKey);
+        setConfigButtonBusy(button, true, 'Salvando...');
+
+        const { error } = await appState.supabaseClient
+            .from('professional_commission_rules')
+            .upsert([{
+                organization_id: orgId,
+                professional_id: professionalId,
+                rate_bps: Math.round(ratePercent * 100),
+                basis,
+                active
+            }], {
+                onConflict: 'professional_id'
+            });
+
+        if (error) throw error;
+
+        await refreshConfigurationWorkspace();
+
+        showAlert('Regra de comissão atualizada', 'success');
+        await showCommissionRulesConfig();
+    } catch (error) {
+        console.error('Save commission rule error:', error);
+        showAlert('Erro ao salvar regra: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setConfigButtonBusy(button, false);
+        }
+    }
+}
+
+// Compatibilidade com chamadas anteriores.
+async function showAddCommissionRuleForm() {
+    return showCommissionRulesConfig();
 }
 
 async function submitAddCommissionRule() {
-    try {
-        const profId = document.getElementById('prof-commission-select').value;
-        const ratePercent = parseFloat(document.getElementById('commission-rate').value);
-        const basis = document.getElementById('commission-basis').value;
-        const active = document.getElementById('commission-active').checked;
-        const orgId = appState.workspaceData?.organization?.id;
-        if (!profId || isNaN(ratePercent) || ratePercent < 0 || ratePercent > 100 || !basis) {
-            showAlert('Preencha todos os dados corretamente', 'error'); return;
-        }
-        const { error } = await appState.supabaseClient.from('professional_commission_rules').upsert([{
-            organization_id: orgId, professional_id: profId, rate_bps: Math.round(ratePercent * 100), basis, active
-        }], { onConflict: 'professional_id' });
-        if (error) throw error;
-        appState.workspaceData = null; await loadWorkspaceData();
-        showAlert('Regra de comissão salva com sucesso', 'success');
-        setTimeout(() => showCommissionRulesConfig(), 500);
-    } catch (error) {
-        console.error('Add commission rule error:', error);
-        showAlert('Erro ao salvar regra: ' + error.message, 'error');
-    }
+    return showCommissionRulesConfig();
+}
+
+async function loadBookingReadiness(orgId) {
+    const [
+        { count: serviceCount, error: serviceError },
+        { data: professionals, error: profError },
+        { data: links, error: linkError },
+        { data: hours, error: hoursError }
+    ] = await Promise.all([
+        appState.supabaseClient
+            .from('services')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
+            .eq('active', true),
+
+        appState.supabaseClient
+            .from('professionals')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('active', true),
+
+        appState.supabaseClient
+            .from('professional_services')
+            .select('professional_id,service_id')
+            .eq('organization_id', orgId),
+
+        appState.supabaseClient
+            .from('professional_hours')
+            .select('professional_id,closed')
+            .eq('organization_id', orgId)
+            .eq('closed', false)
+    ]);
+
+    if (serviceError) throw serviceError;
+    if (profError) throw profError;
+    if (linkError) throw linkError;
+    if (hoursError) throw hoursError;
+
+    const professionalIds = new Set(
+        (professionals || []).map(p => p.id)
+    );
+
+    const linkedProfessionals = new Set(
+        (links || [])
+            .filter(link => professionalIds.has(link.professional_id))
+            .map(link => link.professional_id)
+    );
+
+    const professionalsWithHours = new Set(
+        (hours || [])
+            .filter(row => professionalIds.has(row.professional_id))
+            .map(row => row.professional_id)
+    );
+
+    const activeProfessionals = professionalIds.size;
+
+    return {
+        activeServices: Number(serviceCount || 0),
+        activeProfessionals,
+        linkedProfessionals: linkedProfessionals.size,
+        professionalsWithHours: professionalsWithHours.size,
+        ready:
+            Number(serviceCount || 0) > 0 &&
+            activeProfessionals > 0 &&
+            linkedProfessionals.size === activeProfessionals &&
+            professionalsWithHours.size === activeProfessionals
+    };
 }
 
 async function showBookingPoliciesConfig() {
-    if (appState.userRole !== 'OWNER') { showAlert('Acesso negado', 'error'); return; }
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Acesso negado', 'error');
+        return;
+    }
+
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando política...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando política...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const { data: policy, error } = await appState.supabaseClient
-            .from('booking_policies')
-            .select('public_booking_enabled,allow_public_cancel,allow_public_reschedule,min_notice_minutes,max_advance_days')
-            .eq('organization_id', orgId)
-            .maybeSingle();
-        if (error && error.code !== 'PGRST116') throw error;
-        const p = policy || {public_booking_enabled:false,allow_public_cancel:false,allow_public_reschedule:false,min_notice_minutes:0,max_advance_days:90};
+        const [
+            { data: policy, error: policyError },
+            readiness
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('booking_policies')
+                .select(
+                    'public_booking_enabled,allow_public_cancel,' +
+                    'allow_public_reschedule,min_notice_minutes,max_advance_days'
+                )
+                .eq('organization_id', orgId)
+                .maybeSingle(),
+
+            loadBookingReadiness(orgId)
+        ]);
+
+        if (policyError && policyError.code !== 'PGRST116') {
+            throw policyError;
+        }
+
+        const p = policy || {
+            public_booking_enabled: false,
+            allow_public_cancel: false,
+            allow_public_reschedule: false,
+            min_notice_minutes: 0,
+            max_advance_days: 90
+        };
+
+        const publicStatus = p.public_booking_enabled
+            ? 'AGENDAMENTO PÚBLICO ATIVO'
+            : 'AGENDAMENTO PÚBLICO DESATIVADO';
+
         configContent.innerHTML = `
-            <div class="card" style="max-width:500px"><div class="card-title">Política de agendamento</div>
-            <div class="form-group"><label><input type="checkbox" id="policy-booking-enabled" ${p.public_booking_enabled ? 'checked' : ''}> Habilitar agendamento público</label></div>
-            <div class="form-group"><label>Aviso prévio mínimo (minutos)</label><input type="number" id="policy-min-notice" min="0" max="10080" step="1" value="${p.min_notice_minutes ?? 0}"></div>
-            <div class="form-group"><label>Dias máximos para agendamento</label><input type="number" id="policy-max-advance" min="1" max="365" step="1" value="${p.max_advance_days ?? 90}"></div>
-            <div class="form-group"><label><input type="checkbox" id="policy-allow-cancel" ${p.allow_public_cancel ? 'checked' : ''}> Permitir cancelamento público</label></div>
-            <div class="form-group"><label><input type="checkbox" id="policy-allow-reschedule" ${p.allow_public_reschedule ? 'checked' : ''}> Permitir reagendamento público</label></div>
-            <div class="button-group"><button class="button button-primary" onclick="submitBookingPolicy()">Salvar</button><button class="button button-secondary" onclick="renderConfigurationPage()">Cancelar</button></div>
-            <p class="text-muted" style="margin-top:1rem">O agendamento real só deve ser ativado após cadastrar serviços, profissionais e expediente da unidade.</p>
-            </div>`;
+            <div class="card form-card config-edit-card booking-policy-card">
+                <div class="config-booking-head">
+                    <div>
+                        <span>CANAL PÚBLICO</span>
+                        <div class="card-title">Política de agendamento</div>
+                        <p>
+                            Controle quando clientes podem reservar, cancelar
+                            ou reagendar pela experiência pública.
+                        </p>
+                    </div>
+
+                    <span class="config-booking-state ${p.public_booking_enabled ? 'is-live' : 'is-off'}">
+                        ${publicStatus}
+                    </span>
+                </div>
+
+                <div class="config-readiness-grid">
+                    <div>
+                        <span>SERVIÇOS ATIVOS</span>
+                        <strong>${readiness.activeServices}</strong>
+                    </div>
+
+                    <div>
+                        <span>PROFISSIONAIS ATIVOS</span>
+                        <strong>${readiness.activeProfessionals}</strong>
+                    </div>
+
+                    <div>
+                        <span>COM VÍNCULOS</span>
+                        <strong>
+                            ${readiness.linkedProfessionals}/${readiness.activeProfessionals}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>COM EXPEDIENTE</span>
+                        <strong>
+                            ${readiness.professionalsWithHours}/${readiness.activeProfessionals}
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="config-readiness-note ${readiness.ready ? 'is-ready' : 'is-blocked'}">
+                    <strong>
+                        ${readiness.ready
+                            ? 'Estrutura pronta para receber reservas.'
+                            : 'Estrutura incompleta para ativação pública.'}
+                    </strong>
+
+                    <span>
+                        ${readiness.ready
+                            ? 'Revise as regras abaixo antes de publicar o agendamento.'
+                            : 'Todos os profissionais ativos precisam ter vínculo de serviço e pelo menos um dia de expediente aberto.'}
+                    </span>
+                </div>
+
+                <label class="config-toggle-row">
+                    <input
+                        type="checkbox"
+                        id="policy-booking-enabled"
+                        ${p.public_booking_enabled ? 'checked' : ''}
+                        ${!readiness.ready && !p.public_booking_enabled ? 'disabled' : ''}
+                    >
+                    <span>
+                        <strong>Habilitar agendamento público</strong>
+                        <small>
+                            Quando ativo, clientes reais passam a conseguir criar reservas.
+                        </small>
+                    </span>
+                </label>
+
+                <div class="config-form-grid">
+                    <div class="form-group">
+                        <label>Aviso prévio mínimo (minutos)</label>
+                        <input
+                            type="number"
+                            id="policy-min-notice"
+                            min="0"
+                            max="10080"
+                            step="1"
+                            value="${Number(p.min_notice_minutes ?? 0)}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>Antecedência máxima (dias)</label>
+                        <input
+                            type="number"
+                            id="policy-max-advance"
+                            min="1"
+                            max="365"
+                            step="1"
+                            value="${Number(p.max_advance_days ?? 90)}"
+                        >
+                    </div>
+                </div>
+
+                <label class="config-toggle-row">
+                    <input
+                        type="checkbox"
+                        id="policy-allow-cancel"
+                        ${p.allow_public_cancel ? 'checked' : ''}
+                    >
+                    <span>
+                        <strong>Permitir cancelamento pelo cliente</strong>
+                        <small>
+                            Usa o link seguro de gerenciamento criado junto com a reserva.
+                        </small>
+                    </span>
+                </label>
+
+                <label class="config-toggle-row">
+                    <input
+                        type="checkbox"
+                        id="policy-allow-reschedule"
+                        ${p.allow_public_reschedule ? 'checked' : ''}
+                    >
+                    <span>
+                        <strong>Permitir reagendamento pelo cliente</strong>
+                        <small>
+                            O novo horário continua sujeito à disponibilidade e às regras da unidade.
+                        </small>
+                    </span>
+                </label>
+
+                <div class="button-group">
+                    <button
+                        class="button button-primary"
+                        id="booking-policy-save"
+                        onclick="submitBookingPolicy()"
+                    >
+                        Salvar política
+                    </button>
+
+                    <button
+                        class="button button-secondary"
+                        onclick="renderConfigurationPage()"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
     } catch (error) {
         console.error('Load booking policy error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar política: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar política: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
 }
 
 async function submitBookingPolicy() {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Acesso negado', 'error');
+        return;
+    }
+
+    const requestKey = 'booking-policy';
+    const button = document.getElementById('booking-policy-save');
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
     try {
-        const publicBookingEnabled = document.getElementById('policy-booking-enabled').checked;
-        const minNotice = Number(document.getElementById('policy-min-notice').value);
-        const maxAdvance = Number(document.getElementById('policy-max-advance').value);
-        const allowCancel = document.getElementById('policy-allow-cancel').checked;
-        const allowReschedule = document.getElementById('policy-allow-reschedule').checked;
-        const orgId = appState.workspaceData?.organization?.id;
-        if (!Number.isInteger(minNotice) || minNotice < 0 || minNotice > 10080 || !Number.isInteger(maxAdvance) || maxAdvance < 1 || maxAdvance > 365) {
-            showAlert('Revise os limites da política de agendamento', 'error'); return;
+        const publicBookingEnabled =
+            document.getElementById('policy-booking-enabled').checked;
+
+        const minNotice =
+            Number(document.getElementById('policy-min-notice').value);
+
+        const maxAdvance =
+            Number(document.getElementById('policy-max-advance').value);
+
+        const allowCancel =
+            document.getElementById('policy-allow-cancel').checked;
+
+        const allowReschedule =
+            document.getElementById('policy-allow-reschedule').checked;
+
+        const orgId =
+            appState.workspaceData?.organization?.id;
+
+        if (
+            !Number.isInteger(minNotice) ||
+            minNotice < 0 ||
+            minNotice > 10080
+        ) {
+            showAlert(
+                'O aviso prévio deve ficar entre 0 e 10080 minutos',
+                'error'
+            );
+            return;
         }
-        const { error } = await appState.supabaseClient.from('booking_policies').upsert([{
-            organization_id: orgId,
+
+        if (
+            !Number.isInteger(maxAdvance) ||
+            maxAdvance < 1 ||
+            maxAdvance > 365
+        ) {
+            showAlert(
+                'A antecedência máxima deve ficar entre 1 e 365 dias',
+                'error'
+            );
+            return;
+        }
+
+        const readiness = await loadBookingReadiness(orgId);
+
+        if (publicBookingEnabled && !readiness.ready) {
+            showAlert(
+                'Não é possível ativar: revise vínculos e expediente dos profissionais ativos.',
+                'error'
+            );
+            return;
+        }
+
+        const currentEnabled =
+            Boolean(appState.workspaceData?.booking_policy?.public_booking_enabled);
+
+        if (publicBookingEnabled && !currentEnabled) {
+            const confirmed = window.confirm(
+                'Tem certeza que deseja ativar o agendamento público? ' +
+                'Clientes reais poderão criar reservas.'
+            );
+
+            if (!confirmed) return;
+        }
+
+        configurationMutationRequests.add(requestKey);
+        setConfigButtonBusy(button, true, 'Salvando...');
+
+        const { error } = await appState.supabaseClient
+            .from('booking_policies')
+            .upsert([{
+                organization_id: orgId,
+                public_booking_enabled: publicBookingEnabled,
+                min_notice_minutes: minNotice,
+                max_advance_days: maxAdvance,
+                allow_public_cancel: allowCancel,
+                allow_public_reschedule: allowReschedule
+            }], {
+                onConflict: 'organization_id'
+            });
+
+        if (error) throw error;
+
+        await refreshConfigurationWorkspace();
+
+        // Mantém a política disponível localmente para o próximo toggle/edição.
+        if (!appState.workspaceData.booking_policy) {
+            appState.workspaceData.booking_policy = {};
+        }
+
+        Object.assign(appState.workspaceData.booking_policy, {
             public_booking_enabled: publicBookingEnabled,
             min_notice_minutes: minNotice,
             max_advance_days: maxAdvance,
             allow_public_cancel: allowCancel,
             allow_public_reschedule: allowReschedule
-        }], { onConflict: 'organization_id' });
-        if (error) throw error;
-        showAlert('Política atualizada com sucesso', 'success');
-        setTimeout(() => renderConfigurationPage(), 500);
+        });
+
+        showAlert('Política de agendamento atualizada', 'success');
+        await showBookingPoliciesConfig();
     } catch (error) {
         console.error('Update booking policy error:', error);
         showAlert('Erro ao atualizar política: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setConfigButtonBusy(button, false);
+        }
     }
 }
 

@@ -4700,3 +4700,225 @@ body.public-shell .content-inner {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+
+/* KIRA CONFIG COMMISSION BOOKING V20 */
+
+.config-commission-groups {
+    display: grid;
+    gap: 1px;
+    background: #2b2925;
+}
+
+.config-commission-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.3fr) .7fr 1fr auto auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    background: #121210;
+}
+
+.config-commission-person,
+.config-commission-value {
+    display: grid;
+    gap: .2rem;
+}
+
+.config-commission-person span,
+.config-commission-value span {
+    color: #777067;
+    font-size: .52rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.config-commission-person strong {
+    color: #eee6d8;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: .92rem;
+}
+
+.config-commission-value strong {
+    color: #d6cec1;
+    font-size: .76rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.config-info-note {
+    display: grid;
+    gap: .3rem;
+    margin-top: 1rem;
+    padding: .9rem 1rem;
+    border-left: 2px solid rgba(209,170,91,.58);
+    background: rgba(209,170,91,.035);
+}
+
+.config-info-note strong {
+    color: #d5c19a;
+    font-size: .72rem;
+}
+
+.config-info-note span {
+    color: #817b71;
+    font-size: .7rem;
+    line-height: 1.55;
+}
+
+#commission-save-submit[aria-busy="true"],
+#booking-policy-save[aria-busy="true"] {
+    cursor: wait;
+    opacity: .62;
+}
+
+.config-booking-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 1rem;
+}
+
+.config-booking-head > div {
+    display: grid;
+    gap: .3rem;
+}
+
+.config-booking-head > div > span {
+    color: #d1aa5b;
+    font-size: .56rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.config-booking-head p {
+    max-width: 52ch;
+    margin: 0;
+    color: #817b71;
+    font-size: .76rem;
+    line-height: 1.55;
+}
+
+.config-booking-state {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: .35rem .6rem;
+    border: 1px solid #302e29;
+    font-size: .55rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    white-space: nowrap;
+}
+
+.config-booking-state.is-live {
+    color: #82b58d;
+    border-color: rgba(94,150,108,.42);
+    background: rgba(94,150,108,.055);
+}
+
+.config-booking-state.is-off {
+    color: #918a80;
+}
+
+.config-readiness-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 1px;
+    margin: 1rem 0;
+    background: #2b2925;
+}
+
+.config-readiness-grid > div {
+    display: grid;
+    gap: .35rem;
+    padding: .9rem;
+    background: #11110f;
+}
+
+.config-readiness-grid span {
+    color: #777067;
+    font-size: .5rem;
+    font-weight: 800;
+    letter-spacing: .1em;
+}
+
+.config-readiness-grid strong {
+    color: #e5ddd0;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.config-readiness-note {
+    display: grid;
+    gap: .25rem;
+    padding: .85rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #2d2b27;
+}
+
+.config-readiness-note strong {
+    font-size: .72rem;
+}
+
+.config-readiness-note span {
+    color: #817b71;
+    font-size: .68rem;
+    line-height: 1.5;
+}
+
+.config-readiness-note.is-ready {
+    border-color: rgba(94,150,108,.30);
+    background: rgba(94,150,108,.035);
+}
+
+.config-readiness-note.is-ready strong {
+    color: #82b58d;
+}
+
+.config-readiness-note.is-blocked {
+    border-color: rgba(209,170,91,.24);
+    background: rgba(209,170,91,.025);
+}
+
+.config-readiness-note.is-blocked strong {
+    color: #d1aa5b;
+}
+
+@media (max-width: 900px) {
+    .config-commission-row {
+        grid-template-columns: 1.2fr .7fr 1fr auto;
+    }
+
+    .config-commission-row > .config-row-actions {
+        grid-column: 1 / -1;
+    }
+
+    .config-readiness-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .config-commission-row {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+    }
+
+    .config-commission-person {
+        grid-column: 1 / -1;
+    }
+
+    .config-booking-head {
+        flex-direction: column;
+        gap: .8rem;
+    }
+
+    .config-booking-state {
+        white-space: normal;
+    }
+
+    .config-readiness-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
