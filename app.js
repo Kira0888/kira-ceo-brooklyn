@@ -69,6 +69,27 @@ function isExplicitBookingDemo() {
     return new URLSearchParams(window.location.search).get('demo') === '1';
 }
 
+
+
+// KIRA_FRONTEND_SECURITY_V23_1
+function clearSupabaseAuthTokensFromUrl() {
+    const hash = window.location.hash || '';
+
+    if (
+        !hash.includes('access_token=') &&
+        !hash.includes('refresh_token=') &&
+        !hash.includes('type=recovery')
+    ) {
+        return;
+    }
+
+    window.history.replaceState(
+        null,
+        document.title,
+        `${window.location.pathname}${window.location.search}`
+    );
+}
+
 // ============================================================
 // Initialization
 // ============================================================
@@ -93,6 +114,8 @@ async function initializeApp() {
         
         // Recovery links return session data inside the URL hash.
         // Never interpret Supabase auth tokens as an application route.
+        clearSupabaseAuthTokensFromUrl();
+
         const initialRoute = window.location.hash.slice(1);
 
         if (appState.passwordRecoveryMode && appState.currentSession) {
@@ -138,6 +161,7 @@ async function loadSupabaseConfig() {
                 auth: {
                     detectSessionInUrl: true,
                     persistSession: true,
+                    storage: window.sessionStorage,
                     flowType: 'implicit'
                 }
             }
@@ -5881,7 +5905,7 @@ function loadSupabaseLibrary() {
         }
 
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3';
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2';
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
@@ -5895,3 +5919,51 @@ window.addEventListener('load', () => {
         showAlert('Erro ao carregar dependências', 'error');
     });
 });
+
+function setupSecureMobileSidebar() {
+    const menuButton = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    if (!menuButton || !sidebar) return;
+
+    const setMenuState = (open) => {
+        sidebar.classList.toggle('sidebar-open', open);
+        document.body.classList.toggle('sidebar-menu-open', open);
+
+        menuButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+        menuButton.setAttribute(
+            'aria-label',
+            open ? 'Fechar menu de navegação' : 'Abrir menu de navegação'
+        );
+    };
+
+    menuButton.addEventListener('click', () => {
+        setMenuState(!sidebar.classList.contains('sidebar-open'));
+    });
+
+    sidebar.querySelectorAll('.nav-item').forEach((link) => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                setMenuState(false);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (
+            event.key === 'Escape' &&
+            sidebar.classList.contains('sidebar-open')
+        ) {
+            setMenuState(false);
+            menuButton.focus();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            setMenuState(false);
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', setupSecureMobileSidebar);
