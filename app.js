@@ -2220,7 +2220,7 @@ async function renderFinancialPage() {
         const agenda = appState.workspaceData?.agenda || [];
         const orders = financial.orders || [];
         const cash = financial.cash || [];
-        const commission = financial.commission || [];
+        const commission = await loadVisibleCommissionRows(financial);
         const receipts = financial.receipts || [];
         const refunds = financial.refunds || [];
         const movements = financial.cash_movements || [];
@@ -3135,7 +3135,7 @@ async function renderReportsPage() {
         const agenda = appState.workspaceData.agenda || [];
         const financial = appState.workspaceData.financial || {};
         const orders = financial.orders || [];
-        const commission = financial.commission || [];
+        const commission = await loadVisibleCommissionRows(financial);
         const refunds = financial.refunds || [];
         const payouts = financial.commission_payouts || [];
 
@@ -3910,6 +3910,41 @@ async function submitAddService() {
     return submitServiceForm();
 }
 
+// KIRA_PROFESSIONAL_VISIBILITY_V24_1
+function filterCommissionRowsForProfessionals(commission, professionals) {
+    const activeIds = new Set(
+        professionals.filter(p => p.active === true).map(p => p.id)
+    );
+    const amountFields = [
+        'accrued_cents', 'adjustment_cents', 'paid_out_cents', 'payable_cents'
+    ];
+
+    return commission.filter(row =>
+        activeIds.has(row.professional_id) ||
+        amountFields.some(field => {
+            const value = Number(row[field] ?? 0);
+            // Preserve malformed values rather than silently hiding financial data.
+            return !Number.isFinite(value) || value !== 0;
+        })
+    );
+}
+
+async function loadVisibleCommissionRows(financial) {
+    const commission = financial.commission || [];
+    if (!commission.length) return [];
+
+    const orgId = appState.workspaceData?.organization?.id;
+    if (!orgId) throw new Error('Unidade não identificada.');
+
+    const { data: professionals, error } = await appState.supabaseClient
+        .from('professionals')
+        .select('id,active')
+        .eq('organization_id', orgId);
+
+    if (error) throw error;
+    return filterCommissionRowsForProfessionals(commission, professionals || []);
+}
+
 // KIRA_PROFESSIONAL_ARCHIVE_V18_1
 async function showProfessionalsConfig() {
     const configContent = document.getElementById('config-content');
@@ -3929,12 +3964,12 @@ async function showProfessionalsConfig() {
             .from('professionals')
             .select('id,display_name,active,auth_user_id')
             .eq('organization_id', orgId)
+            .eq('active', true)
             .order('display_name');
 
         if (error) throw error;
 
         const activeProfessionals = (professionals || []).filter(p => p.active);
-        const archivedProfessionals = (professionals || []).filter(p => !p.active);
 
         configContent.innerHTML = `
             <div class="card config-list-card">
@@ -3943,8 +3978,7 @@ async function showProfessionalsConfig() {
                         <span>EQUIPE</span>
                         <div class="card-title">Profissionais</div>
                         <p>
-                            Gerencie nomes, status e perfis da equipe.
-                            Profissionais excluídos saem da operação ativa sem apagar o histórico.
+                            Gerencie os profissionais ativos da equipe.
                         </p>
                     </div>
 
@@ -4002,55 +4036,11 @@ async function showProfessionalsConfig() {
                 ` : `
                     <div class="ops-empty">
                         <strong>Nenhum profissional ativo</strong>
-                        <span>Adicione um profissional ou restaure um perfil arquivado.</span>
+                        <span>Adicione um profissional para começar.</span>
                     </div>
                 `}
 
-                ${appState.userRole === 'OWNER' && archivedProfessionals.length ? `
-                    <details class="config-archive">
-                        <summary>
-                            Excluídos / inativos
-                            <span>${archivedProfessionals.length}</span>
-                        </summary>
 
-                        <div class="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>Status</th>
-                                        <th>Ação</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${archivedProfessionals.map(p => `
-                                        <tr>
-                                            <td>${sanitizeText(p.display_name)}</td>
-                                            <td><span class="config-status is-inactive">INATIVO</span></td>
-                                            <td>
-                                                <div class="config-row-actions">
-                                                    <button
-                                                        class="button button-secondary compact-action"
-                                                        data-kira-action="restoreProfessionalConfig('${p.id}')"
-                                                    >
-                                                        Restaurar
-                                                    </button>
-
-                                                    <button
-                                                        class="button button-secondary compact-action"
-                                                        data-kira-action="showProfessionalForm('${p.id}')"
-                                                    >
-                                                        Editar
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </details>
-                ` : ''}
             </div>
         `;
     } catch (error) {
