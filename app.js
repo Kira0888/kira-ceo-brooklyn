@@ -137,6 +137,7 @@ async function loadSupabaseConfig() {
     }
 }
 
+// BROOKLYN_OWNER_ACCESS_V7
 function setupAuthStateListener() {
     if (!appState.supabaseClient) return;
 
@@ -148,12 +149,8 @@ function setupAuthStateListener() {
 
         if (event === 'PASSWORD_RECOVERY') {
             appState.passwordRecoveryMode = true;
-            appState.currentSession = session;
-            appState.currentUser = session?.user || null;
             appState.workspaceData = null;
             appState.userRole = null;
-            updateUserInfo();
-            updateNavigationByRole();
             navigateTo('redefinir-senha');
             return;
         }
@@ -172,14 +169,36 @@ function setupAuthStateListener() {
                 return;
             }
 
-            loadWorkspaceData().then(() => {
+            ensureWorkspaceAccess().then(ok => {
                 updateNavigationByRole();
-                if (!appState.userRole && appState.currentPage === 'acesso-interno') {
-                    renderInitialOwnerActivation();
+                if (appState.currentPage === 'acesso-interno') {
+                    if (ok) renderLoggedInAuth();
+                    else renderAccessRecoveryState();
                 }
             });
         }
     });
+}
+
+async function ensureWorkspaceAccess() {
+    if (!appState.currentSession) return false;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const ok = await loadWorkspaceData(attempt === 0);
+        if (ok && appState.userRole) return true;
+
+        try {
+            const { data, error } = await appState.supabaseClient.auth.refreshSession();
+            if (!error && data?.session) {
+                appState.currentSession = data.session;
+                appState.currentUser = data.session.user;
+            }
+        } catch (error) {
+            console.warn('Session refresh failed:', error);
+        }
+    }
+
+    return Boolean(appState.userRole);
 }
 
 function updateNavigationByRole() {
@@ -219,13 +238,13 @@ async function checkSession() {
     }
 }
 
-async function loadWorkspaceData() {
+async function loadWorkspaceData(allowRefresh = true) {
     try {
         if (!appState.currentSession) {
             appState.workspaceData = null;
             appState.userRole = null;
             updateNavigationByRole();
-            return;
+            return false;
         }
 
         const response = await fetch(`${INTERNAL_ENDPOINT}?mode=workspace`, {
@@ -235,31 +254,37 @@ async function loadWorkspaceData() {
             }
         });
 
-        if (response.status === 401) {
+        if (response.status === 401 && allowRefresh) {
+            const { data, error } = await appState.supabaseClient.auth.refreshSession();
+            if (!error && data?.session) {
+                appState.currentSession = data.session;
+                appState.currentUser = data.session.user;
+                return loadWorkspaceData(false);
+            }
+        }
+
+        if (response.status === 401 || response.status === 403) {
             appState.workspaceData = null;
             appState.userRole = null;
             updateNavigationByRole();
-            await appState.supabaseClient.auth.signOut();
-            return;
+            return false;
         }
 
-        if (response.status === 403) {
-            appState.workspaceData = null;
-            appState.userRole = null;
-            updateNavigationByRole();
-            return;
+        if (!response.ok) {
+            throw new Error(`Workspace HTTP ${response.status}`);
         }
-
-        if (!response.ok) throw new Error('Failed to load workspace');
 
         appState.workspaceData = await response.json();
         appState.userRole = appState.workspaceData.role || null;
         updateNavigationByRole();
+        updateUserInfo();
+        return Boolean(appState.userRole);
     } catch (error) {
         console.error('Workspace load error:', error);
         appState.workspaceData = null;
         appState.userRole = null;
         updateNavigationByRole();
+        return false;
     }
 }
 
@@ -1080,9 +1105,9 @@ function renderLocationPage() {
 // Authentication
 // ============================================================
 
-function renderAuthPage() {
+async function renderAuthPage() {
     const content = document.getElementById('content');
-    updateTopbar('Acesso interno', 'Autenticação');
+    updateTopbar('Acesso interno', 'Área da equipe');
 
     if (!appState.currentUser) {
         renderLoginForm();
@@ -1090,11 +1115,60 @@ function renderAuthPage() {
     }
 
     if (!appState.userRole) {
-        renderInitialOwnerActivation();
-        return;
+        content.innerHTML = `
+            <div class="content-inner">
+                <div class="card" style="max-width:560px;margin:2rem auto;">
+                    <div class="card-title">Sincronizando acesso</div>
+                    <p class="text-muted">Sua sessão está ativa. Estamos carregando seu perfil de gestão.</p>
+                    <div class="ops-loading">
+                        <div class="loading"></div>
+                        <span>Verificando permissão...</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const ok = await ensureWorkspaceAccess();
+        if (!ok) {
+            renderAccessRecoveryState();
+            return;
+        }
     }
 
     renderLoggedInAuth();
+}
+
+function renderAccessRecoveryState() {
+    const content = document.getElementById('content');
+    updateTopbar('Acesso interno', 'Sincronização de conta');
+
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card" style="max-width:560px;margin:2rem auto;">
+                <div class="card-title">Conta autenticada</div>
+                <p class="text-muted">
+                    Não foi possível carregar a permissão neste momento.
+                    Sua conta não precisa de código de ativação.
+                </p>
+                <div class="button-group" style="margin-top:1rem;">
+                    <button class="button button-primary" id="retry-access-btn">Tentar novamente</button>
+                    <button class="button button-secondary" id="logout-access-btn">Sair</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('retry-access-btn').addEventListener('click', async () => {
+        const ok = await ensureWorkspaceAccess();
+        if (ok) {
+            showAlert('Acesso sincronizado', 'success');
+            navigateTo('home');
+        } else {
+            showAlert('Ainda não foi possível sincronizar o acesso.', 'error');
+        }
+    });
+
+    document.getElementById('logout-access-btn').addEventListener('click', handleLogout);
 }
 
 function renderLoginForm() {
@@ -1298,6 +1372,7 @@ async function handleLogin() {
     try {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
+
         if (!email || !password) {
             showMessage('Preencha e-mail e senha', 'error');
             return;
@@ -1308,19 +1383,28 @@ async function handleLogin() {
 
         appState.currentSession = data.session;
         appState.currentUser = data.user;
-        await loadWorkspaceData();
+
+        const ok = await ensureWorkspaceAccess();
         updateUserInfo();
         updateNavigationByRole();
 
-        if (!appState.userRole) renderInitialOwnerActivation();
-        else {
-            showAlert('Bem-vindo!', 'success');
-            setTimeout(() => navigateTo('agenda'), 700);
+        if (!ok) {
+            renderAccessRecoveryState();
+            return;
         }
+
+        showAlert('Bem-vindo à gestão Brooklyn', 'success');
+        setTimeout(() => navigateTo('home'), 350);
     } catch (error) {
         console.error('Login error:', error);
         showMessage('Erro ao fazer login: ' + error.message, 'error');
     }
+}
+
+function renderInitialOwnerActivation() {
+    // O proprietário já possui membership OWNER.
+    // Fluxo de token antigo desativado para evitar pedir código novamente.
+    renderAccessRecoveryState();
 }
 
 function renderInitialOwnerActivation() {
@@ -1410,7 +1494,7 @@ async function handleSignup() {
             appState.currentUser = data.user;
             updateUserInfo();
             showAlert('Conta criada e sessão iniciada.', 'success');
-            setTimeout(() => renderInitialOwnerActivation(), 1500);
+            setTimeout(() => renderAccessRecoveryState(), 800);
         } else {
             showAlert('Conta criada. Confirme seu e-mail para continuar.', 'success');
             setTimeout(() => renderLoginForm(), 2000);
@@ -1423,28 +1507,32 @@ async function handleSignup() {
 
 function renderLoggedInAuth() {
     const content = document.getElementById('content');
-    const userEmail = sanitizeText(appState.currentUser.email);
-    
+    const userEmail = sanitizeText(appState.currentUser?.email || '');
+    const isOwner = appState.userRole === 'OWNER';
+
+    updateTopbar('Acesso interno', isOwner ? 'Conta de manutenção · OWNER' : 'Área da equipe');
+
     content.innerHTML = `
         <div class="content-inner">
-            <div class="card" style="max-width: 400px; margin: 2rem auto;">
-                <div class="card-title">Conectado</div>
-                <p>E-mail: <strong>${userEmail}</strong></p>
-                <p>Função: <strong>${appState.userRole || 'Carregando...'}</strong></p>
-
-                <button class="button button-primary" id="dashboard-btn" style="width: 100%; margin-top: 1rem;">
-                    Ir para painel
-                </button>
-
-                <button class="button button-danger" id="logout-btn" style="width: 100%; margin-top: 0.5rem;">
-                    Sair
-                </button>
+            <div class="card" style="max-width:620px;margin:2rem auto;">
+                <span style="display:block;color:#d1aa5b;font-size:.65rem;letter-spacing:.16em;margin-bottom:.7rem;">
+                    ${isOwner ? 'CONTA DE MANUTENÇÃO' : 'SESSÃO ATIVA'}
+                </span>
+                <div class="card-title">
+                    ${isOwner ? 'Acesso administrativo permanente' : 'Acesso da equipe'}
+                </div>
+                <p style="margin-top:.8rem;">${userEmail}</p>
+                <p>Perfil: <strong>${sanitizeText(appState.userRole || '—')}</strong></p>
+                <div class="button-group" style="margin-top:1rem;">
+                    <button class="button button-primary" id="dashboard-btn">Abrir painel</button>
+                    <button class="button button-danger" id="logout-btn">Sair</button>
+                </div>
             </div>
         </div>
     `;
 
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    document.getElementById('dashboard-btn').addEventListener('click', () => navigateTo('agenda'));
+    document.getElementById('dashboard-btn').addEventListener('click', () => navigateTo('home'));
 }
 
 async function handleLogout() {
