@@ -1340,12 +1340,12 @@ async function handleLogout() {
 
 async function renderSchedulePage() {
     const content = document.getElementById('content');
-    updateTopbar('Agenda', `${new Date().toLocaleDateString('pt-BR')}`);
+    updateTopbar('Agenda', 'Visão operacional');
 
     content.innerHTML = `
         <div class="content-inner">
-            <div id="schedule-loading" style="text-align: center; padding: 2rem;">
-                <div class="loading" style="display: inline-block;"></div> Carregando agenda...
+            <div id="schedule-loading" style="text-align:center;padding:2rem;">
+                <div class="loading" style="display:inline-block;"></div> Carregando agenda...
             </div>
         </div>
     `;
@@ -1355,63 +1355,88 @@ async function renderSchedulePage() {
             await loadWorkspaceData();
         }
 
-        const agenda = appState.workspaceData?.agenda || [];
-        
+        const agenda = [...(appState.workspaceData?.agenda || [])]
+            .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+
         if (agenda.length === 0) {
             content.innerHTML = `
                 <div class="content-inner">
                     <div class="card">
-                        <div class="card-title">Agenda</div>
-                        <p class="text-muted">Nenhum agendamento para hoje</p>
+                        <div class="card-title">Agenda operacional</div>
+                        <p class="text-muted">Nenhum atendimento no período carregado.</p>
                     </div>
                 </div>
             `;
             return;
         }
 
-        let tableHtml = '<table><thead><tr><th>Horário</th><th>Cliente</th><th>Serviço</th><th>Profissional</th><th>Estado</th><th>Ações</th></tr></thead><tbody>';
-        
-        agenda.forEach(appt => {
+        const rows = agenda.map(appt => {
             const state = sanitizeText(appt.state || 'BOOKED');
-            const stateBadge = `<span class="badge badge-info">${state}</span>`;
-            const time = new Date(appt.starts_at).toLocaleTimeString('pt-BR', {
+            const start = new Date(appt.starts_at);
+            const date = start.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                timeZone: 'America/Sao_Paulo'
+            });
+            const time = start.toLocaleTimeString('pt-BR', {
                 hour: '2-digit',
                 minute: '2-digit',
                 timeZone: 'America/Sao_Paulo'
             });
-            
-            let actionButtons = '';
-            
-            if (['BOOKED', 'CONFIRMED'].includes(appt.state)) {
-                actionButtons = `
-                    <button class="button button-secondary" onclick="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE')" style="padding: 0.5rem 1rem; font-size: 0.875rem; margin-bottom: 0.25rem;">Iniciar</button>
-                    <button class="button button-danger" onclick="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW')" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Faltou</button>
+
+            let actions = '';
+            if (appt.appointment_id && ['BOOKED', 'CONFIRMED'].includes(appt.state)) {
+                actions = `
+                    <button class="button button-secondary compact-action"
+                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE')">Iniciar</button>
+                    <button class="button button-danger compact-action"
+                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW')">Faltou</button>
                 `;
-            } else if (appt.state === 'IN_SERVICE') {
-                actionButtons = `
-                    <button class="button button-primary" onclick="updateAppointmentStatus('${appt.appointment_id}', 'COMPLETED')" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Concluir</button>
+            } else if (appt.appointment_id && appt.state === 'IN_SERVICE') {
+                actions = `
+                    <button class="button button-primary compact-action"
+                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'COMPLETED')">Concluir</button>
                 `;
             }
-            
-            tableHtml += `
+
+            return `
                 <tr>
+                    <td>${date}</td>
                     <td>${time}</td>
                     <td>${sanitizeText(appt.customer_name || '—')}</td>
                     <td>${sanitizeText(appt.service?.name || '—')}</td>
                     <td>${sanitizeText(appt.professional?.display_name || '—')}</td>
-                    <td>${stateBadge}</td>
-                    <td>${actionButtons}</td>
+                    <td><span class="badge badge-info">${state}</span></td>
+                    <td><div class="inline-actions">${actions}</div></td>
                 </tr>
             `;
-        });
-        
-        tableHtml += '</tbody></table>';
+        }).join('');
 
         content.innerHTML = `
             <div class="content-inner">
                 <div class="card">
-                    <div class="card-title">Agenda</div>
-                    ${tableHtml}
+                    <div class="section-heading">
+                        <div>
+                            <div class="card-title">Agenda operacional</div>
+                            <p class="text-muted">Atendimentos carregados da unidade.</p>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Hora</th>
+                                    <th>Cliente</th>
+                                    <th>Serviço</th>
+                                    <th>Profissional</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         `;
@@ -1419,7 +1444,9 @@ async function renderSchedulePage() {
         console.error('Schedule page error:', error);
         content.innerHTML = `
             <div class="content-inner">
-                <div class="alert alert-error">Erro ao carregar agenda: ${error.message}</div>
+                <div class="alert alert-error">
+                    Erro ao carregar agenda: ${sanitizeText(error.message || 'erro desconhecido')}
+                </div>
             </div>
         `;
     }
@@ -1454,14 +1481,15 @@ async function updateAppointmentStatus(appointmentId, newState) {
     }
 }
 
+// KIRA_FINANCE_V2
 async function renderFinancialPage() {
     const content = document.getElementById('content');
-    updateTopbar('Financeiro', 'Caixa e movimentações');
+    updateTopbar('Financeiro', 'Caixa, recebimentos e comissões');
 
     content.innerHTML = `
         <div class="content-inner">
-            <div id="financial-loading" style="text-align: center; padding: 2rem;">
-                <div class="loading" style="display: inline-block;"></div> Carregando dados financeiros...
+            <div style="text-align:center;padding:2rem;">
+                <div class="loading" style="display:inline-block;"></div> Carregando financeiro...
             </div>
         </div>
     `;
@@ -1472,99 +1500,264 @@ async function renderFinancialPage() {
         }
 
         const financial = appState.workspaceData?.financial || {};
+        const agenda = appState.workspaceData?.agenda || [];
         const orders = financial.orders || [];
         const cash = financial.cash || [];
-        const agenda = appState.workspaceData?.agenda || [];
+        const commission = financial.commission || [];
+        const receipts = financial.receipts || [];
+        const refunds = financial.refunds || [];
+        const movements = financial.cash_movements || [];
+        const payouts = financial.commission_payouts || [];
 
-        // Calculate totals
-        const recebido = orders.reduce((sum, order) => sum + (order.paid_cents || 0), 0);
-        const aReceber = orders.reduce((sum, order) => sum + (order.balance_cents || 0), 0);
-        const vendas = orders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
+        const openCashSession = cash.find(session => session.status === 'OPEN') || null;
+
+        const salesCents = orders.reduce((sum, order) => sum + Number(order.total_cents || 0), 0);
+        const receivedCents = orders.reduce((sum, order) => sum + Number(order.paid_cents || 0), 0);
+        const dueCents = orders.reduce((sum, order) => sum + Number(order.balance_cents || 0), 0);
+        const refundedCents = refunds
+            .filter(r => r.status === 'CONFIRMED')
+            .reduce((sum, r) => sum + Number(r.amount_cents || 0), 0);
+        const commissionDueCents = commission.reduce((sum, c) => sum + Number(c.payable_cents || 0), 0);
+
+        const refundByReceipt = refunds.reduce((map, refund) => {
+            if (refund.status !== 'CONFIRMED') return map;
+            const key = refund.payment_receipt_id;
+            map[key] = (map[key] || 0) + Number(refund.amount_cents || 0);
+            return map;
+        }, {});
 
         let html = `
-            <div class="card">
-                <div class="card-title">Resumo financeiro</div>
-                <table style="width: 100%;">
-                    <tr><td>Vendas:</td><td><strong>R$ ${(vendas / 100).toFixed(2)}</strong></td></tr>
-                    <tr><td>Recebido:</td><td><strong>R$ ${(recebido / 100).toFixed(2)}</strong></td></tr>
-                    <tr><td>A receber:</td><td><strong>R$ ${(aReceber / 100).toFixed(2)}</strong></td></tr>
-                </table>
+            <div class="finance-kpis">
+                <div class="metric-panel">
+                    <span>Vendas</span>
+                    <strong>R$ ${(salesCents / 100).toFixed(2)}</strong>
+                </div>
+                <div class="metric-panel">
+                    <span>Recebido líquido</span>
+                    <strong>R$ ${(receivedCents / 100).toFixed(2)}</strong>
+                </div>
+                <div class="metric-panel">
+                    <span>A receber</span>
+                    <strong>R$ ${(dueCents / 100).toFixed(2)}</strong>
+                </div>
+                <div class="metric-panel">
+                    <span>Devoluções</span>
+                    <strong>R$ ${(refundedCents / 100).toFixed(2)}</strong>
+                </div>
+                <div class="metric-panel">
+                    <span>Comissões a pagar</span>
+                    <strong>R$ ${(commissionDueCents / 100).toFixed(2)}</strong>
+                </div>
             </div>
         `;
 
-        // Cash session
-        if (cash.length > 0) {
-            const session = cash[0];
-            const expectedCash = session.status === 'OPEN' 
-                ? session.expected_cash_now_cents 
-                : session.expected_cash_cents_snapshot;
-            
+        if (openCashSession) {
+            const expected = Number(openCashSession.expected_cash_now_cents || 0);
             html += `
                 <div class="card">
-                    <div class="card-title">Caixa</div>
-                    <table style="width: 100%;">
-                        <tr><td>Status:</td><td><strong>${session.status === 'OPEN' ? 'ABERTO' : 'FECHADO'}</strong></td></tr>
-                        <tr><td>Abertura:</td><td>R$ ${(session.opening_cash_cents / 100).toFixed(2)}</td></tr>
-                        <tr><td>Esperado:</td><td>R$ ${(expectedCash / 100).toFixed(2)}</td></tr>
-                        ${session.counted_cash_cents !== null ? `<tr><td>Contado:</td><td>R$ ${(session.counted_cash_cents / 100).toFixed(2)}</td></tr>` : ''}
-                        ${session.difference_cents !== null ? `<tr><td>Diferença:</td><td>R$ ${(session.difference_cents / 100).toFixed(2)}</td></tr>` : ''}
-                    </table>
-                    <div class="button-group" style="margin-top: 1rem;">
-                        ${session.status === 'OPEN' ? `
-                            <button class="button button-danger" onclick="openCloseCashDialog('${session.cash_session_id}')">Fechar caixa</button>
-                        ` : `
-                            <button class="button button-primary" onclick="openCashDialog()">Abrir caixa</button>
-                        `}
+                    <div class="section-heading">
+                        <div>
+                            <div class="card-title">Caixa aberto</div>
+                            <p class="text-muted">Controle físico do dinheiro da unidade.</p>
+                        </div>
+                        <span class="badge badge-success">ABERTO</span>
+                    </div>
+
+                    <div class="cash-summary">
+                        <div><span>Fundo inicial</span><strong>R$ ${(Number(openCashSession.opening_cash_cents || 0) / 100).toFixed(2)}</strong></div>
+                        <div><span>Esperado agora</span><strong>R$ ${(expected / 100).toFixed(2)}</strong></div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="button button-secondary"
+                            onclick="openCashAdjustmentDialog('${openCashSession.cash_session_id}')">
+                            Movimento de caixa
+                        </button>
+                        <button class="button button-danger"
+                            onclick="openCloseCashDialog('${openCashSession.cash_session_id}')">
+                            Fechar caixa
+                        </button>
                     </div>
                 </div>
             `;
         } else {
+            const lastSession = cash[0] || null;
             html += `
                 <div class="card">
-                    <div class="card-title">Caixa</div>
-                    <p class="text-muted">Nenhuma sessão aberta</p>
-                    <button class="button button-primary" onclick="openCashDialog()" style="margin-top: 1rem;">Abrir caixa</button>
+                    <div class="section-heading">
+                        <div>
+                            <div class="card-title">Caixa</div>
+                            <p class="text-muted">
+                                ${lastSession ? 'Última sessão encerrada. Abra um novo caixa para movimentações em dinheiro.' : 'Nenhuma sessão de caixa registrada.'}
+                            </p>
+                        </div>
+                        <span class="badge badge-warning">FECHADO</span>
+                    </div>
+                    <button class="button button-primary" onclick="openCashDialog()">Abrir caixa</button>
                 </div>
             `;
         }
 
-        // Orders
-        if (orders.length > 0) {
+        html += `
+            <div class="card">
+                <div class="card-title">Comandas</div>
+                ${orders.length ? `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Total</th>
+                                    <th>Pago</th>
+                                    <th>Saldo</th>
+                                    <th>Pagamento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${orders.map(order => {
+                                    const agendaItem = agenda.find(a => a.appointment_id === order.appointment_id);
+                                    const customerName = agendaItem?.customer_name || `Atendimento ${String(order.order_id || '').slice(0, 8)}`;
+                                    const orderReceipts = receipts.filter(r => r.order_id === order.order_id);
+
+                                    const receiptDetails = orderReceipts.length ? `
+                                        <details class="transaction-details">
+                                            <summary>${orderReceipts.length} lançamento(s)</summary>
+                                            <div class="transaction-list">
+                                                ${orderReceipts.map(receipt => {
+                                                    const alreadyRefunded = refundByReceipt[receipt.id] || 0;
+                                                    const refundable = Math.max(Number(receipt.amount_cents || 0) - alreadyRefunded, 0);
+                                                    const canRefund = appState.userRole === 'OWNER' && refundable > 0;
+
+                                                    return `
+                                                        <div class="transaction-row">
+                                                            <div>
+                                                                <strong>${sanitizeText(receipt.method || '—')}</strong>
+                                                                <span>R$ ${(Number(receipt.amount_cents || 0) / 100).toFixed(2)}</span>
+                                                                ${alreadyRefunded > 0 ? `<small>Devolvido: R$ ${(alreadyRefunded / 100).toFixed(2)}</small>` : ''}
+                                                            </div>
+                                                            ${canRefund ? `
+                                                                <button class="button button-secondary compact-action"
+                                                                    onclick="openRefundDialog('${receipt.id}', ${refundable}, '${sanitizeText(receipt.method || '')}')">
+                                                                    Devolver
+                                                                </button>
+                                                            ` : ''}
+                                                        </div>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                        </details>
+                                    ` : '<span class="text-muted">Sem lançamentos</span>';
+
+                                    return `
+                                        <tr>
+                                            <td>${sanitizeText(customerName)}</td>
+                                            <td>R$ ${(Number(order.total_cents || 0) / 100).toFixed(2)}</td>
+                                            <td>R$ ${(Number(order.paid_cents || 0) / 100).toFixed(2)}</td>
+                                            <td>R$ ${(Number(order.balance_cents || 0) / 100).toFixed(2)}</td>
+                                            <td>
+                                                ${Number(order.balance_cents || 0) > 0 ? `
+                                                    <button class="button button-primary compact-action"
+                                                        onclick="openCheckoutDialog('${order.appointment_id}', ${Number(order.balance_cents || 0)})">
+                                                        Receber
+                                                    </button>
+                                                ` : '<span class="badge badge-success">QUITADO</span>'}
+                                                ${receiptDetails}
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : '<p class="text-muted">Nenhuma comanda aberta ou concluída.</p>'}
+            </div>
+        `;
+
+        html += `
+            <div class="card">
+                <div class="card-title">Comissões</div>
+                ${commission.length ? `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Profissional</th>
+                                    <th>Apurada</th>
+                                    <th>Ajustes</th>
+                                    <th>Repassada</th>
+                                    <th>A pagar</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${commission.map(c => {
+                                    const payable = Number(c.payable_cents || 0);
+                                    return `
+                                        <tr>
+                                            <td>${sanitizeText(c.display_name || '—')}</td>
+                                            <td>R$ ${(Number(c.accrued_cents || 0) / 100).toFixed(2)}</td>
+                                            <td>R$ ${(Number(c.adjustment_cents || 0) / 100).toFixed(2)}</td>
+                                            <td>R$ ${(Number(c.paid_out_cents || 0) / 100).toFixed(2)}</td>
+                                            <td><strong>R$ ${(payable / 100).toFixed(2)}</strong></td>
+                                            <td>
+                                                ${appState.userRole === 'OWNER' && payable > 0 ? `
+                                                    <button class="button button-secondary compact-action"
+                                                        onclick="openCommissionPayoutDialog(
+                                                            '${c.professional_id}',
+                                                            '${sanitizeText(c.display_name || 'Profissional')}',
+                                                            ${payable}
+                                                        )">
+                                                        Registrar repasse
+                                                    </button>
+                                                ` : '—'}
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : '<p class="text-muted">Nenhuma comissão apurada.</p>'}
+            </div>
+        `;
+
+        if (movements.length) {
+            const labels = {
+                OPENING_FLOAT: 'Abertura',
+                CASH_PAYMENT: 'Recebimento',
+                EXPENSE: 'Despesa',
+                WITHDRAWAL: 'Sangria',
+                SUPPLY: 'Suprimento',
+                ADJUSTMENT: 'Ajuste'
+            };
+
             html += `
                 <div class="card">
-                    <div class="card-title">Comandas</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Cliente</th>
-                                <th>Total</th>
-                                <th>Pago</th>
-                                <th>Saldo</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${orders.map(order => {
-                                // Find customer name from agenda
-                                const agendaItem = agenda.find(a => a.appointment_id === order.appointment_id);
-                                const customerName = agendaItem?.customer_name || `Atendimento ${order.order_id.slice(0, 8)}`;
-                                
-                                return `
+                    <div class="card-title">Últimos movimentos de caixa</div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Valor</th>
+                                    <th>Observação</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${movements.slice(0, 12).map(m => `
                                     <tr>
-                                        <td>${sanitizeText(customerName)}</td>
-                                        <td>R$ ${((order.total_cents || 0) / 100).toFixed(2)}</td>
-                                        <td>R$ ${((order.paid_cents || 0) / 100).toFixed(2)}</td>
-                                        <td>R$ ${((order.balance_cents || 0) / 100).toFixed(2)}</td>
-                                        <td>
-                                            ${order.balance_cents > 0 ? `
-                                                <button class="button button-secondary" onclick="openCheckoutDialog('${order.appointment_id}', ${order.balance_cents})" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Receber</button>
-                                            ` : ''}
+                                        <td>${sanitizeText(labels[m.kind] || m.kind || '—')}</td>
+                                        <td class="${Number(m.amount_cents || 0) < 0 ? 'amount-negative' : 'amount-positive'}">
+                                            R$ ${(Number(m.amount_cents || 0) / 100).toFixed(2)}
                                         </td>
+                                        <td>${sanitizeText(m.note || '—')}</td>
+                                        <td>${new Date(m.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
                                     </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             `;
         }
@@ -1574,7 +1767,9 @@ async function renderFinancialPage() {
         console.error('Financial page error:', error);
         content.innerHTML = `
             <div class="content-inner">
-                <div class="alert alert-error">Erro ao carregar dados financeiros: ${error.message}</div>
+                <div class="alert alert-error">
+                    Erro ao carregar financeiro: ${sanitizeText(error.message || 'erro desconhecido')}
+                </div>
             </div>
         `;
     }
@@ -1812,14 +2007,321 @@ async function submitCheckout(appointmentId) {
     }
 }
 
+function openCashAdjustmentDialog(cashSessionId) {
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card form-card">
+                <div class="card-title">Movimento de caixa</div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="cash-adjustment-kind">
+                        <option value="">Selecione</option>
+                        <option value="EXPENSE">Despesa</option>
+                        <option value="WITHDRAWAL">Sangria</option>
+                        <option value="SUPPLY">Suprimento</option>
+                        <option value="ADJUSTMENT">Ajuste manual</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Valor (R$)</label>
+                    <input type="number" id="cash-adjustment-amount" step="0.01" placeholder="0,00">
+                    <small class="field-help">Para ajuste manual, valores negativos reduzem o caixa.</small>
+                </div>
+                <div class="form-group">
+                    <label>Observação</label>
+                    <input type="text" id="cash-adjustment-note" maxlength="180" placeholder="Motivo do movimento">
+                </div>
+                <div class="button-group">
+                    <button class="button button-primary" id="cash-adjustment-submit"
+                        onclick="submitCashAdjustment('${cashSessionId}')">Registrar</button>
+                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function submitCashAdjustment(cashSessionId) {
+    const button = document.getElementById('cash-adjustment-submit');
+    try {
+        const kind = document.getElementById('cash-adjustment-kind').value;
+        const amountReais = Number(document.getElementById('cash-adjustment-amount').value);
+        const note = document.getElementById('cash-adjustment-note').value.trim();
+
+        if (!kind || !Number.isFinite(amountReais) || amountReais === 0 || !note) {
+            showAlert('Preencha tipo, valor e observação', 'error');
+            return;
+        }
+
+        let amountCents = Math.round(amountReais * 100);
+        if (kind !== 'ADJUSTMENT') amountCents = Math.abs(amountCents);
+
+        if (button) button.disabled = true;
+
+        const response = await fetch(INTERNAL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${appState.currentSession.access_token}`,
+                'apikey': appState.supabaseConfig.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'cash-adjustment',
+                cash_session_id: cashSessionId,
+                kind,
+                amount_cents: amountCents,
+                note
+            })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || payload.error || 'Movimento não registrado');
+
+        appState.workspaceData = null;
+        await loadWorkspaceData();
+        showAlert('Movimento de caixa registrado', 'success');
+        renderFinancialPage();
+    } catch (error) {
+        console.error('Cash adjustment error:', error);
+        showAlert('Erro no movimento de caixa: ' + error.message, 'error');
+        if (button) button.disabled = false;
+    }
+}
+
+function openRefundDialog(receiptId, refundableCents, method) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Somente o proprietário pode registrar devoluções', 'error');
+        return;
+    }
+
+    const openCashSession = (appState.workspaceData?.financial?.cash || [])
+        .find(session => session.status === 'OPEN') || null;
+    const cashBlocked = method === 'CASH' && !openCashSession;
+
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card form-card">
+                <div class="card-title">Registrar devolução</div>
+                <p class="text-muted">Disponível neste recebimento: R$ ${(Number(refundableCents || 0) / 100).toFixed(2)}</p>
+
+                ${cashBlocked ? `
+                    <div class="alert alert-warning">
+                        Para devolver um recebimento em dinheiro, abra o caixa primeiro.
+                    </div>
+                ` : ''}
+
+                <div class="form-group">
+                    <label>Valor da devolução (R$)</label>
+                    <input type="number" id="refund-amount" step="0.01" min="0.01"
+                        max="${(Number(refundableCents || 0) / 100).toFixed(2)}"
+                        value="${(Number(refundableCents || 0) / 100).toFixed(2)}">
+                </div>
+
+                <div class="form-group">
+                    <label>Motivo</label>
+                    <input type="text" id="refund-reason" maxlength="180"
+                        placeholder="Ex.: correção de cobrança">
+                </div>
+
+                <div class="button-group">
+                    <button class="button button-primary" id="refund-submit"
+                        ${cashBlocked ? 'disabled' : ''}
+                        onclick="submitRefund('${receiptId}', ${Number(refundableCents || 0)}, '${method}')">
+                        Confirmar devolução
+                    </button>
+                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function submitRefund(receiptId, refundableCents, method) {
+    const button = document.getElementById('refund-submit');
+    try {
+        const amountReais = Number(document.getElementById('refund-amount').value);
+        const reason = document.getElementById('refund-reason').value.trim();
+        const amountCents = Math.round(amountReais * 100);
+
+        if (!Number.isFinite(amountReais) || amountCents <= 0 || amountCents > refundableCents) {
+            showAlert('Valor de devolução inválido', 'error');
+            return;
+        }
+
+        if (reason.length < 3) {
+            showAlert('Informe o motivo da devolução', 'error');
+            return;
+        }
+
+        const openCashSession = (appState.workspaceData?.financial?.cash || [])
+            .find(session => session.status === 'OPEN') || null;
+
+        if (method === 'CASH' && !openCashSession) {
+            showAlert('Abra o caixa antes da devolução em dinheiro', 'error');
+            return;
+        }
+
+        if (button) button.disabled = true;
+
+        const response = await fetch(INTERNAL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${appState.currentSession.access_token}`,
+                'apikey': appState.supabaseConfig.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'refund',
+                payment_receipt_id: receiptId,
+                amount_cents: amountCents,
+                reason,
+                cash_session_id: method === 'CASH' ? openCashSession.cash_session_id : null
+            })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || payload.error || 'Devolução não registrada');
+
+        appState.workspaceData = null;
+        await loadWorkspaceData();
+        showAlert('Devolução registrada e comissão compensada', 'success');
+        renderFinancialPage();
+    } catch (error) {
+        console.error('Refund error:', error);
+        showAlert('Erro ao registrar devolução: ' + error.message, 'error');
+        if (button) button.disabled = false;
+    }
+}
+
+function openCommissionPayoutDialog(professionalId, displayName, payableCents) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Somente o proprietário pode registrar repasses', 'error');
+        return;
+    }
+
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card form-card">
+                <div class="card-title">Repasse de comissão</div>
+                <p class="text-muted">
+                    ${sanitizeText(displayName)} · disponível R$ ${(Number(payableCents || 0) / 100).toFixed(2)}
+                </p>
+
+                <div class="form-group">
+                    <label>Valor (R$)</label>
+                    <input type="number" id="payout-amount" step="0.01" min="0.01"
+                        max="${(Number(payableCents || 0) / 100).toFixed(2)}"
+                        value="${(Number(payableCents || 0) / 100).toFixed(2)}">
+                </div>
+
+                <div class="form-group">
+                    <label>Forma do repasse</label>
+                    <select id="payout-method">
+                        <option value="PIX">PIX</option>
+                        <option value="CASH">Dinheiro</option>
+                        <option value="OTHER">Outro</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Observação</label>
+                    <input type="text" id="payout-note" maxlength="180"
+                        placeholder="Opcional">
+                </div>
+
+                <div id="payout-cash-warning"></div>
+
+                <div class="button-group">
+                    <button class="button button-primary" id="payout-submit"
+                        onclick="submitCommissionPayout('${professionalId}', ${Number(payableCents || 0)})">
+                        Registrar repasse
+                    </button>
+                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const method = document.getElementById('payout-method');
+    const syncCashState = () => {
+        const openCashSession = (appState.workspaceData?.financial?.cash || [])
+            .find(session => session.status === 'OPEN') || null;
+        const needsCash = method.value === 'CASH';
+        const blocked = needsCash && !openCashSession;
+        document.getElementById('payout-submit').disabled = blocked;
+        document.getElementById('payout-cash-warning').innerHTML = blocked
+            ? '<div class="alert alert-warning">Abra o caixa antes de registrar repasse em dinheiro.</div>'
+            : '';
+    };
+    method.addEventListener('change', syncCashState);
+    syncCashState();
+}
+
+async function submitCommissionPayout(professionalId, payableCents) {
+    const button = document.getElementById('payout-submit');
+    try {
+        const amountReais = Number(document.getElementById('payout-amount').value);
+        const method = document.getElementById('payout-method').value;
+        const note = document.getElementById('payout-note').value.trim();
+        const amountCents = Math.round(amountReais * 100);
+
+        if (!Number.isFinite(amountReais) || amountCents <= 0 || amountCents > payableCents) {
+            showAlert('Valor de repasse inválido', 'error');
+            return;
+        }
+
+        const openCashSession = (appState.workspaceData?.financial?.cash || [])
+            .find(session => session.status === 'OPEN') || null;
+
+        if (method === 'CASH' && !openCashSession) {
+            showAlert('Abra o caixa antes do repasse em dinheiro', 'error');
+            return;
+        }
+
+        if (button) button.disabled = true;
+
+        const response = await fetch(INTERNAL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${appState.currentSession.access_token}`,
+                'apikey': appState.supabaseConfig.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'commission-payout',
+                professional_id: professionalId,
+                amount_cents: amountCents,
+                method,
+                note,
+                cash_session_id: method === 'CASH' ? openCashSession.cash_session_id : null
+            })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || payload.error || 'Repasse não registrado');
+
+        appState.workspaceData = null;
+        await loadWorkspaceData();
+        showAlert('Repasse de comissão registrado', 'success');
+        renderFinancialPage();
+    } catch (error) {
+        console.error('Commission payout error:', error);
+        showAlert('Erro ao registrar repasse: ' + error.message, 'error');
+        if (button) button.disabled = false;
+    }
+}
+
 async function renderReportsPage() {
     const content = document.getElementById('content');
-    updateTopbar('Relatórios', 'Análise e métricas');
+    updateTopbar('Relatórios', 'Indicadores operacionais e financeiros');
 
     content.innerHTML = `
         <div class="content-inner">
-            <div id="reports-loading" style="text-align: center; padding: 2rem;">
-                <div class="loading" style="display: inline-block;"></div> Carregando relatórios...
+            <div style="text-align:center;padding:2rem;">
+                <div class="loading" style="display:inline-block;"></div> Carregando relatórios...
             </div>
         </div>
     `;
@@ -1831,78 +2333,88 @@ async function renderReportsPage() {
 
         const agenda = appState.workspaceData?.agenda || [];
         const financial = appState.workspaceData?.financial || {};
-        const commission = financial.commission || [];
-
-        // Calculate metrics from agenda
-        const total = agenda.length;
-        const completed = agenda.filter(a => a.state === 'COMPLETED').length;
-        const noShow = agenda.filter(a => a.state === 'NO_SHOW').length;
-        const cancelled = agenda.filter(a => a.state === 'CANCELLED').length;
-
-        // Calculate financial metrics
         const orders = financial.orders || [];
-        const vendas = orders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
-        const recebido = orders.reduce((sum, order) => sum + (order.paid_cents || 0), 0);
-        const aReceber = orders.reduce((sum, order) => sum + (order.balance_cents || 0), 0);
+        const commission = financial.commission || [];
+        const refunds = financial.refunds || [];
+        const payouts = financial.commission_payouts || [];
 
-        let html = `
-            <div class="card">
-                <div class="card-title">Indicadores operacionais</div>
-                <table style="width: 100%;">
-                    <tr><td>Agendamentos hoje:</td><td><strong>${total}</strong></td></tr>
-                    <tr><td>Concluídos:</td><td><strong>${completed}</strong></td></tr>
-                    <tr><td>Faltas:</td><td><strong>${noShow}</strong></td></tr>
-                    <tr><td>Cancelados:</td><td><strong>${cancelled}</strong></td></tr>
-                </table>
+        const operational = {
+            total: agenda.length,
+            completed: agenda.filter(a => a.state === 'COMPLETED').length,
+            inService: agenda.filter(a => a.state === 'IN_SERVICE').length,
+            noShow: agenda.filter(a => a.state === 'NO_SHOW').length,
+            cancelled: agenda.filter(a => a.state === 'CANCELLED').length
+        };
+
+        const sales = orders.reduce((sum, o) => sum + Number(o.total_cents || 0), 0);
+        const received = orders.reduce((sum, o) => sum + Number(o.paid_cents || 0), 0);
+        const due = orders.reduce((sum, o) => sum + Number(o.balance_cents || 0), 0);
+        const refunded = refunds
+            .filter(r => r.status === 'CONFIRMED')
+            .reduce((sum, r) => sum + Number(r.amount_cents || 0), 0);
+        const commissionDue = commission.reduce((sum, c) => sum + Number(c.payable_cents || 0), 0);
+        const paidOut = payouts.reduce((sum, p) => sum + Number(p.amount_cents || 0), 0);
+
+        const html = `
+            <div class="finance-kpis">
+                <div class="metric-panel"><span>Atendimentos carregados</span><strong>${operational.total}</strong></div>
+                <div class="metric-panel"><span>Concluídos</span><strong>${operational.completed}</strong></div>
+                <div class="metric-panel"><span>Em atendimento</span><strong>${operational.inService}</strong></div>
+                <div class="metric-panel"><span>Faltas</span><strong>${operational.noShow}</strong></div>
+                <div class="metric-panel"><span>Cancelados</span><strong>${operational.cancelled}</strong></div>
             </div>
 
             <div class="card">
-                <div class="card-title">Indicadores financeiros</div>
-                <table style="width: 100%;">
-                    <tr><td>Vendas:</td><td><strong>R$ ${(vendas / 100).toFixed(2)}</strong></td></tr>
-                    <tr><td>Recebido:</td><td><strong>R$ ${(recebido / 100).toFixed(2)}</strong></td></tr>
-                    <tr><td>A receber:</td><td><strong>R$ ${(aReceber / 100).toFixed(2)}</strong></td></tr>
-                </table>
+                <div class="card-title">Financeiro do período carregado</div>
+                <div class="report-grid">
+                    <div><span>Vendas</span><strong>R$ ${(sales / 100).toFixed(2)}</strong></div>
+                    <div><span>Recebido líquido</span><strong>R$ ${(received / 100).toFixed(2)}</strong></div>
+                    <div><span>A receber</span><strong>R$ ${(due / 100).toFixed(2)}</strong></div>
+                    <div><span>Devoluções</span><strong>R$ ${(refunded / 100).toFixed(2)}</strong></div>
+                    <div><span>Repasses registrados</span><strong>R$ ${(paidOut / 100).toFixed(2)}</strong></div>
+                    <div><span>Comissões a pagar</span><strong>R$ ${(commissionDue / 100).toFixed(2)}</strong></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Comissões por profissional</div>
+                ${commission.length ? `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Profissional</th>
+                                    <th>Apurada</th>
+                                    <th>Ajustes</th>
+                                    <th>Repassada</th>
+                                    <th>A pagar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${commission.map(c => `
+                                    <tr>
+                                        <td>${sanitizeText(c.display_name || '—')}</td>
+                                        <td>R$ ${(Number(c.accrued_cents || 0) / 100).toFixed(2)}</td>
+                                        <td>R$ ${(Number(c.adjustment_cents || 0) / 100).toFixed(2)}</td>
+                                        <td>R$ ${(Number(c.paid_out_cents || 0) / 100).toFixed(2)}</td>
+                                        <td><strong>R$ ${(Number(c.payable_cents || 0) / 100).toFixed(2)}</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : '<p class="text-muted">Nenhuma comissão apurada.</p>'}
             </div>
         `;
-
-        // Commission
-        if (commission.length > 0) {
-            html += `
-                <div class="card">
-                    <div class="card-title">Comissões</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Profissional</th>
-                                <th>Apurada</th>
-                                <th>Ajustes</th>
-                                <th>Repassada</th>
-                                <th>A pagar</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${commission.map(c => `
-                                <tr>
-                                    <td>${sanitizeText(c.display_name || '—')}</td>
-                                    <td>R$ ${((c.accrued_cents || 0) / 100).toFixed(2)}</td>
-                                    <td>R$ ${((c.adjustment_cents || 0) / 100).toFixed(2)}</td>
-                                    <td>R$ ${((c.paid_out_cents || 0) / 100).toFixed(2)}</td>
-                                    <td>R$ ${((c.payable_cents || 0) / 100).toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
 
         content.innerHTML = `<div class="content-inner">${html}</div>`;
     } catch (error) {
         console.error('Reports page error:', error);
         content.innerHTML = `
             <div class="content-inner">
-                <div class="alert alert-error">Erro ao carregar relatórios: ${error.message}</div>
+                <div class="alert alert-error">
+                    Erro ao carregar relatórios: ${sanitizeText(error.message || 'erro desconhecido')}
+                </div>
             </div>
         `;
     }
