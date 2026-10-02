@@ -377,20 +377,27 @@ function renderHomePage() {
 
     content.innerHTML = `
         <div class="content-inner">
-            <div class="card">
-                <div class="card-title">Bem-vindo ao Kira-CEO Brooklyn</div>
-                <p>Sistema operacional para a Barbearia Brooklyn</p>
-                <p style="margin-top: 1rem; color: #666; font-size: 0.9375rem;">
-                    QS 121 — Samambaia — Brasília/DF
-                </p>
-                <div style="margin-top: 1.5rem;">
-                    <a href="#agendamento" class="button button-primary">Fazer agendamento</a>
-                    <a href="#acesso-interno" class="button button-secondary" style="margin-left: 0.75rem;">Acesso interno</a>
+            <section class="brand-hero">
+                <div class="brand-eyebrow">BARBEARIA BROOKLYN · QS 121</div>
+                <div class="brand-hero-grid">
+                    <div>
+                        <h1>Agenda, atendimento e gestão em uma operação só.</h1>
+                        <p>Experiência digital da Barbearia Brooklyn com gestão Kira-CEO.</p>
+                        <div class="brand-actions">
+                            <a href="#agendamento" class="button button-primary">Marcar horário</a>
+                            <a href="#acesso-interno" class="button button-secondary">Acesso da equipe</a>
+                        </div>
+                    </div>
+                    <div class="brand-seal" aria-label="Barbearia Brooklyn">
+                        <div class="brand-crown">♛</div>
+                        <strong>BROOKLYN</strong>
+                        <span>BARBEARIA</span>
+                    </div>
                 </div>
-            </div>
+            </section>
 
             <div class="card">
-                <div class="card-title">Funcionalidades</div>
+                <div class="card-title">Operação completa</div>
                 <ul style="list-style: none;">
                     <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">✓ Agendamento online</li>
                     <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">✓ Gerenciamento de agenda</li>
@@ -465,7 +472,7 @@ async function renderBookingPage() {
         if (appState.bookingState.mode === 'demo') {
             finalHTML = `
                 <div class="demo-banner">
-                    ⚠ AMBIENTE DEMO — Os dados abaixo são fictícios para demonstração
+                    AMBIENTE DE APRESENTAÇÃO — nomes, preços e horários ilustrativos até validação final da unidade
                 </div>
                 ${bookingHTML}
             `;

@@ -618,3 +618,69 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   table { min-width: 680px; }
   .card { overflow-x: auto; }
 }
+
+
+/* ============================================================
+   Brooklyn Presentation Theme — Kira-CEO
+   ============================================================ */
+:root {
+    --brooklyn-bg: #0b0b0b;
+    --brooklyn-panel: #121212;
+    --brooklyn-line: #2a2a2a;
+    --brooklyn-text: #f4f1e9;
+    --brooklyn-muted: #aaa59a;
+    --brooklyn-gold: #c89b36;
+    --brooklyn-gold-soft: #e1bd68;
+}
+body { background: var(--brooklyn-bg); color: var(--brooklyn-text); }
+.sidebar { background: #080808; border-right-color: #252525; }
+.sidebar-header, .sidebar-footer { border-color: #252525; }
+.sidebar-brand { display:flex; align-items:center; gap:.85rem; }
+.sidebar-brand-mark { width:42px; height:42px; border:1px solid rgba(200,155,54,.45); border-radius:50%; display:grid; place-items:center; color:var(--brooklyn-gold-soft); font-size:1.35rem; background:radial-gradient(circle at 50% 35%, rgba(200,155,54,.18), transparent 65%); }
+.sidebar-title { color:#fff; font-size:.95rem; letter-spacing:.04em; }
+.sidebar-subtitle { color:#8f8a80; letter-spacing:.08em; }
+.nav-item { color:#a9a69f; border-left-color:transparent; }
+.nav-item:hover { background:#121212; color:#fff; }
+.nav-item.active { background:linear-gradient(90deg, rgba(200,155,54,.16), rgba(200,155,54,.02)); color:#fff; border-left-color:var(--brooklyn-gold); }
+.main-content { background:radial-gradient(circle at 78% -10%, rgba(200,155,54,.08), transparent 28rem), var(--brooklyn-bg); }
+.topbar { background:rgba(11,11,11,.94); border-bottom-color:#252525; box-shadow:none; backdrop-filter:blur(12px); }
+.topbar-title { color:#fff; }
+.topbar-status, .text-muted, .user-info { color:var(--brooklyn-muted); }
+.card { background:var(--brooklyn-panel); border-color:var(--brooklyn-line); box-shadow:none; border-radius:10px; }
+.card-title, .form-group label, th { color:var(--brooklyn-text); }
+.card p { color:#c9c5bc; }
+.form-group input, .form-group select, .form-group textarea { background:#0d0d0d; border-color:#333; color:#fff; border-radius:7px; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--brooklyn-gold); box-shadow:0 0 0 3px rgba(200,155,54,.10); }
+.button { border-radius:7px; font-weight:650; }
+.button-primary { background:var(--brooklyn-gold); color:#0a0a0a; }
+.button-primary:hover { background:var(--brooklyn-gold-soft); }
+.button-secondary { background:#202020; color:#f4f1e9; border:1px solid #343434; }
+.button-secondary:hover { background:#292929; }
+table, thead { background:var(--brooklyn-panel); border-color:var(--brooklyn-line); }
+thead { background:#0f0f0f; }
+td { border-bottom-color:#242424; color:#dedad1; }
+tbody tr:hover { background:#181818; }
+.brand-hero { position:relative; overflow:hidden; background:linear-gradient(115deg, rgba(200,155,54,.16), transparent 42%), #10100f; border:1px solid rgba(200,155,54,.28); border-radius:14px; padding:clamp(1.5rem, 4vw, 3.4rem); margin-bottom:1.5rem; }
+.brand-hero::after { content:""; position:absolute; width:280px; height:280px; right:-80px; top:-120px; border:1px solid rgba(200,155,54,.16); border-radius:50%; }
+.brand-hero-grid { position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1.6fr) minmax(190px,.55fr); align-items:center; gap:2rem; }
+.brand-eyebrow { color:var(--brooklyn-gold-soft); font-size:.75rem; font-weight:750; letter-spacing:.14em; margin-bottom:.9rem; }
+.brand-hero h1 { max-width:800px; font-size:clamp(2rem,5vw,4rem); line-height:1.02; letter-spacing:-.045em; color:#fff; margin:0 0 1rem; }
+.brand-hero p { color:#bdb8ae; max-width:650px; font-size:1.02rem; }
+.brand-actions { display:flex; gap:.75rem; flex-wrap:wrap; margin-top:1.5rem; }
+.brand-seal { aspect-ratio:1; border:1px solid rgba(200,155,54,.34); border-radius:50%; display:grid; place-content:center; text-align:center; background:radial-gradient(circle, rgba(200,155,54,.12), transparent 66%); }
+.brand-seal .brand-crown { color:var(--brooklyn-gold-soft); font-size:2.3rem; line-height:1; margin-bottom:.5rem; }
+.brand-seal strong { color:var(--brooklyn-gold-soft); letter-spacing:.14em; font-size:.95rem; }
+.brand-seal span { color:#8f8a80; letter-spacing:.22em; font-size:.55rem; margin-top:.25rem; }
+.demo-banner { background:rgba(200,155,54,.10); border-color:rgba(200,155,54,.42); color:#e3c170; border-radius:8px; }
+.loading { border-color:#333; border-top-color:var(--brooklyn-gold); }
+.calendar-day { border-color:#303030; color:#ddd; }
+.calendar-day:hover { background:#191919; border-color:var(--brooklyn-gold); }
+.calendar-day.selected { background:var(--brooklyn-gold); color:#0a0a0a; border-color:var(--brooklyn-gold); }
+.calendar-day.today { border-color:var(--brooklyn-gold); }
+.modal-content { background:var(--brooklyn-panel); color:var(--brooklyn-text); border:1px solid var(--brooklyn-line); }
+@media (max-width:768px) {
+    .brand-hero-grid { grid-template-columns:1fr; }
+    .brand-seal { width:150px; justify-self:start; }
+    .brand-actions { flex-direction:column; }
+    .brand-actions .button { width:100%; text-align:center; }
+}

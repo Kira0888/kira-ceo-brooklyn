@@ -4,16 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Kira-CEO Brooklyn — sistema de gestão da Barbearia Brooklyn">
-  <meta name="theme-color" content="#1a1a1a">
-  <title>Kira-CEO Brooklyn</title>
-  <link rel="stylesheet" href="./styles.css?v=2">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>Barbearia Brooklyn · Kira-CEO</title>
+  <link rel="stylesheet" href="./styles.css?v=3">
 </head>
 <body>
   <div class="app-container">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-title">KIRA-CEO</div>
-        <div class="sidebar-subtitle">Brooklyn</div>
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-mark">♛</div>
+          <div>
+            <div class="sidebar-title">BARBEARIA BROOKLYN</div>
+            <div class="sidebar-subtitle">Gestão Kira-CEO · QS 121</div>
+          </div>
+        </div>
       </div>
       <nav class="sidebar-nav">
         <a href="#home" class="nav-item active" data-page="home">Início</a>
@@ -30,7 +35,7 @@
 
     <div class="main-content">
       <header class="topbar">
-        <div><div class="topbar-title">Início</div><div class="topbar-status">Kira-CEO Brooklyn</div></div>
+        <div><div class="topbar-title">Início</div><div class="topbar-status">Brooklyn · QS 121</div></div>
         <button id="mobile-menu-toggle" aria-label="Abrir menu" style="display:none;background:none;border:0;font-size:1.5rem;cursor:pointer">≡</button>
       </header>
       <main class="content"><div id="content"></div></main>
@@ -39,7 +44,7 @@
 
   <div id="alerts-container"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3"></script>
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
   <script>
     const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
     const sidebar = document.querySelector('.sidebar');
