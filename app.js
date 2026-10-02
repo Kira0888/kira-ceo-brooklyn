@@ -376,6 +376,7 @@ function renderPage(page) {
 // ============================================================
 
 // BROOKLYN_PRO_UI_V4
+// BROOKLYN_VISUAL_REFINE_V6
 function renderHomePage() {
     if (appState.currentUser && appState.userRole) {
         renderOwnerDashboardPage();
@@ -386,8 +387,8 @@ function renderHomePage() {
     updateTopbar('Início', 'Barbearia Brooklyn · QS 121');
 
     content.innerHTML = `
-        <div class="content-inner brooklyn-public">
-            <section class="public-hero" aria-label="Barbearia Brooklyn">
+        <div class="content-inner brooklyn-public brooklyn-public-v6">
+            <section class="public-hero public-hero-v6" aria-label="Barbearia Brooklyn">
                 <div class="public-hero-photo">
                     <img src="./assets/brooklyn-hero.jpg" alt="Barbeiro realizando um corte">
                     <div class="public-hero-photo-overlay"></div>
@@ -405,11 +406,9 @@ function renderHomePage() {
                         <strong>QS 121</strong>
                         <small>Samambaia · Brasília/DF</small>
                     </div>
-
-                    <div class="photo-index" aria-hidden="true">121</div>
                 </div>
 
-                <div class="public-hero-copy">
+                <div class="public-hero-copy public-hero-copy-v6">
                     <div class="hero-mini-nav">
                         <span>BROOKLYN / 121</span>
                         <span class="hero-mini-dot"></span>
@@ -418,10 +417,14 @@ function renderHomePage() {
 
                     <div class="hero-copy-main">
                         <span class="hero-eyebrow">AGENDAMENTO DIGITAL</span>
-                        <h1>SEU HORÁRIO.<br>SEU CORTE.<br><em>BROOKLYN.</em></h1>
+                        <h1 class="hero-title-v6">
+                            <span>SEU HORÁRIO.</span>
+                            <span>SEU CORTE.</span>
+                            <em>BROOKLYN.</em>
+                        </h1>
                         <p>
                             Agende seu atendimento na unidade QS 121 com uma experiência direta,
-                            rápida e feita para funcionar bem no celular.
+                            elegante e preparada para funcionar bem no celular e no desktop.
                         </p>
 
                         <div class="hero-cta-row">
@@ -429,345 +432,75 @@ function renderHomePage() {
                                 <span>AGENDAR AGORA</span>
                                 <b>↗</b>
                             </a>
-                            <a href="#localizacao" class="editorial-link">COMO CHEGAR</a>
-                        </div>
-                    </div>
 
-                    <div class="hero-meta">
-                        <div>
-                            <span>01</span>
-                            <strong>AGENDAMENTO</strong>
-                            <small>Serviço, profissional e horário.</small>
-                        </div>
-                        <div>
-                            <span>02</span>
-                            <strong>GESTÃO</strong>
-                            <small>Agenda, caixa e operação no mesmo sistema.</small>
+                            <a href="#localizacao" class="editorial-ghost-link">COMO CHEGAR</a>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <div class="brand-marquee" aria-hidden="true">
-                <div>
-                    <span>BROOKLYN</span><i>✦</i>
-                    <span>PRECISÃO</span><i>✦</i>
-                    <span>QS 121</span><i>✦</i>
-                    <span>AGENDA DIGITAL</span><i>✦</i>
-                    <span>BROOKLYN</span>
-                </div>
-            </div>
-
-            <section class="public-story-grid">
-                <article class="story-copy">
-                    <span class="story-kicker">EXPERIÊNCIA BROOKLYN / DIGITAL</span>
-                    <h2>DA RESERVA AO CAIXA,<br><em>SEM RUÍDO.</em></h2>
-                    <p>
-                        O cliente agenda em poucos passos. A equipe acompanha o atendimento,
-                        registra recebimentos e mantém a operação organizada no mesmo sistema.
-                    </p>
-
-                    <div class="story-lines">
-                        <div><b>01</b><span>Agendamento claro e responsivo</span></div>
-                        <div><b>02</b><span>Operação diária centralizada</span></div>
-                        <div><b>03</b><span>Financeiro e comissões vinculados ao atendimento</span></div>
+            <section class="brooklyn-story-v6" aria-label="Apresentação da unidade">
+                <article class="story-card story-card-number">
+                    <span class="story-kicker">UNIDADE / OPERAÇÃO</span>
+                    <div class="story-number-wrap">
+                        <strong>121</strong>
+                        <small>QS 121 · Samambaia</small>
                     </div>
                 </article>
 
-                <aside class="story-poster">
-                    <div class="poster-top">
-                        <span>UNIDADE</span>
-                        <strong>121</strong>
-                    </div>
-                    <div class="poster-bottom">
-                        <span>SAMAMBAIA</span>
-                        <p>Uma interface criada para combinar com a presença visual da Brooklyn.</p>
-                    </div>
-                </aside>
+                <article class="story-card">
+                    <span class="story-kicker">APRESENTAÇÃO</span>
+                    <h2>Uma estética mais sólida para valorizar a marca.</h2>
+                    <p>
+                        A proposta visual combina preto profundo, dourado editorial e uma
+                        navegação mais premium para causar boa impressão ao apresentar o sistema.
+                    </p>
+                </article>
+
+                <article class="story-card story-card-list">
+                    <span class="story-kicker">DESTAQUES</span>
+                    <ul>
+                        <li>Agendamento online com experiência melhor no mobile</li>
+                        <li>Acesso interno para gestão, agenda, caixa e relatórios</li>
+                        <li>Direção visual alinhada à presença digital da Brooklyn</li>
+                    </ul>
+                </article>
             </section>
 
-            <section class="public-process">
-                <div class="process-head">
-                    <span>FLUXO</span>
-                    <h2>TRÊS PASSOS.<br>SEM COMPLICAÇÃO.</h2>
+            <section class="public-services-v6" aria-label="Resumo do sistema">
+                <div class="services-v6-head">
+                    <span class="story-kicker">GESTÃO BROOKLYN</span>
+                    <h2>Da reserva ao fechamento do dia.</h2>
                 </div>
 
-                <div class="process-grid">
+                <div class="services-v6-grid">
                     <article>
-                        <b>01</b>
-                        <h3>ESCOLHA</h3>
-                        <p>Serviço e profissional.</p>
+                        <span>01</span>
+                        <strong>Agendamento</strong>
+                        <p>Cliente escolhe serviço, profissional, data e horário disponível.</p>
                     </article>
                     <article>
-                        <b>02</b>
-                        <h3>RESERVE</h3>
-                        <p>Data e horário disponível.</p>
+                        <span>02</span>
+                        <strong>Agenda</strong>
+                        <p>Controle diário de status, execução dos atendimentos e fluxo da unidade.</p>
                     </article>
                     <article>
-                        <b>03</b>
-                        <h3>CHEGUE</h3>
-                        <p>A equipe acompanha tudo pela agenda interna.</p>
+                        <span>03</span>
+                        <strong>Financeiro</strong>
+                        <p>Comandas, caixa, repasses, devoluções e visão operacional do dia.</p>
                     </article>
                 </div>
-            </section>
-
-            <section class="public-final-cta">
-                <div>
-                    <span>BARBEARIA BROOKLYN · QS 121</span>
-                    <h2>SEU PRÓXIMO<br>CORTE COMEÇA AQUI.</h2>
-                </div>
-                <a href="#agendamento" class="editorial-cta editorial-cta-large">
-                    <span>MARCAR HORÁRIO</span><b>↗</b>
-                </a>
             </section>
 
             <footer class="public-footer">
-                <span>BARBEARIA BROOKLYN · SAMAMBAIA</span>
+                <a href="#acesso-interno" class="public-staff-link">ÁREA DA EQUIPE ↗</a>
                 <span>GESTÃO DIGITAL KIRA-CEO</span>
             </footer>
-
-            <div id="booking-status" style="display:none;"></div>
         </div>
     `;
-
-    checkExistingBooking();
 }
 
-async function renderOwnerDashboardPage() {
-    const content = document.getElementById('content');
-    updateTopbar('Visão geral', 'Operação Brooklyn · QS 121');
-
-    content.innerHTML = `
-        <div class="content-inner">
-            <div class="ops-loading"><div class="loading"></div><span>Carregando operação...</span></div>
-        </div>
-    `;
-
-    try {
-        if (!appState.workspaceData) {
-            await loadWorkspaceData();
-        }
-
-        const ws = appState.workspaceData || {};
-        const agenda = ws.agenda || [];
-        const services = ws.services || [];
-        const professionals = ws.professionals || [];
-        const financial = ws.financial || {};
-        const orders = financial.orders || [];
-        const cash = financial.cash || [];
-        const commission = financial.commission || [];
-        const receipts = (financial.receipts || []).filter(r => r.confirmed !== false);
-
-        const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-        const todayAgenda = agenda.filter(item =>
-            new Date(item.starts_at).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) === todayKey
-        );
-
-        const stateLabels = {
-            BOOKED: 'Agendado',
-            CONFIRMED: 'Confirmado',
-            IN_SERVICE: 'Em atendimento',
-            COMPLETED: 'Concluído',
-            NO_SHOW: 'Faltou',
-            CANCELLED: 'Cancelado',
-            BLOCKED: 'Bloqueio'
-        };
-
-        const receivedCents = orders.reduce((sum, order) => sum + Number(order.paid_cents || 0), 0);
-        const dueCents = orders.reduce((sum, order) => sum + Number(order.balance_cents || 0), 0);
-        const commissionCents = commission.reduce((sum, item) => sum + Number(item.payable_cents || 0), 0);
-        const openCash = cash.find(session => session.status === 'OPEN') || null;
-
-        const chartDays = [];
-        for (let offset = 6; offset >= 0; offset--) {
-            const d = new Date(Date.now() - offset * 86400000);
-            const key = d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-            const label = d.toLocaleDateString('pt-BR', {
-                weekday: 'short',
-                day: '2-digit',
-                timeZone: 'America/Sao_Paulo'
-            }).replace('.', '');
-
-            const total = receipts
-                .filter(receipt =>
-                    new Date(receipt.created_at).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) === key
-                )
-                .reduce((sum, receipt) => sum + Number(receipt.amount_cents || 0), 0);
-
-            chartDays.push({ key, label, total });
-        }
-
-        const chartMax = Math.max(...chartDays.map(day => day.total), 1);
-
-        const agendaCards = todayAgenda.length
-            ? todayAgenda.map(item => {
-                const time = new Date(item.starts_at).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'America/Sao_Paulo'
-                });
-
-                return `
-                    <div class="ops-appointment">
-                        <div class="ops-time">${time}</div>
-                        <div class="ops-appt-main">
-                            <strong>${sanitizeText(item.customer_name || 'Bloqueio')}</strong>
-                            <span>${sanitizeText(item.service?.name || 'Agenda')} · ${sanitizeText(item.professional?.display_name || '—')}</span>
-                        </div>
-                        <span class="ops-status ops-status-${sanitizeText((item.state || 'BOOKED').toLowerCase())}">
-                            ${sanitizeText(stateLabels[item.state] || item.state || 'Agendado')}
-                        </span>
-                    </div>
-                `;
-            }).join('')
-            : `
-                <div class="ops-empty">
-                    <strong>Agenda livre hoje</strong>
-                    <span>Nenhum atendimento carregado para esta data.</span>
-                </div>
-            `;
-
-        content.innerHTML = `
-            <div class="content-inner ops-dashboard">
-                <section class="ops-hero">
-                    <div>
-                        <span class="ops-eyebrow">OPERAÇÃO / QS 121</span>
-                        <h1>BROOKLYN<br><em>CONTROL.</em></h1>
-                        <p>Visão diária de agenda, caixa, recebimentos e equipe.</p>
-                    </div>
-
-                    <div class="ops-hero-actions">
-                        <a href="#agenda" class="ops-action-primary">ABRIR AGENDA <b>↗</b></a>
-                        <a href="#financeiro" class="ops-action-link">FINANCEIRO</a>
-                    </div>
-                </section>
-
-                <section class="ops-kpis">
-                    <article>
-                        <span>HOJE</span>
-                        <strong>${todayAgenda.length}</strong>
-                        <small>atendimentos na agenda</small>
-                    </article>
-                    <article>
-                        <span>RECEBIDO</span>
-                        <strong>R$ ${(receivedCents / 100).toFixed(2)}</strong>
-                        <small>líquido nas comandas</small>
-                    </article>
-                    <article>
-                        <span>A RECEBER</span>
-                        <strong>R$ ${(dueCents / 100).toFixed(2)}</strong>
-                        <small>saldo em aberto</small>
-                    </article>
-                    <article>
-                        <span>COMISSÕES</span>
-                        <strong>R$ ${(commissionCents / 100).toFixed(2)}</strong>
-                        <small>saldo a repassar</small>
-                    </article>
-                </section>
-
-                <section class="ops-main-grid">
-                    <article class="ops-panel ops-panel-agenda">
-                        <div class="ops-panel-head">
-                            <div>
-                                <span>AGENDA / HOJE</span>
-                                <h2>Movimento do dia</h2>
-                            </div>
-                            <a href="#agenda">VER AGENDA ↗</a>
-                        </div>
-                        <div class="ops-appointment-list">${agendaCards}</div>
-                    </article>
-
-                    <article class="ops-panel ops-panel-chart">
-                        <div class="ops-panel-head">
-                            <div>
-                                <span>RECEBIMENTOS</span>
-                                <h2>Últimos 7 dias</h2>
-                            </div>
-                            <strong>R$ ${(receivedCents / 100).toFixed(2)}</strong>
-                        </div>
-
-                        <div class="ops-chart">
-                            ${chartDays.map(day => `
-                                <div class="ops-bar-column">
-                                    <div class="ops-bar-track">
-                                        <div class="ops-bar" style="height:${Math.max((day.total / chartMax) * 100, day.total > 0 ? 8 : 2)}%"></div>
-                                    </div>
-                                    <span>${sanitizeText(day.label)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </article>
-                </section>
-
-                <section class="ops-secondary-grid">
-                    <article class="ops-panel">
-                        <div class="ops-panel-head">
-                            <div>
-                                <span>ESTRUTURA</span>
-                                <h2>Catálogo ativo</h2>
-                            </div>
-                            <a href="#configuracoes">CONFIGURAR ↗</a>
-                        </div>
-                        <div class="ops-catalog-stats">
-                            <div><strong>${services.length}</strong><span>serviços</span></div>
-                            <div><strong>${professionals.length}</strong><span>profissionais</span></div>
-                            <div><strong>${Number(ws.customers_count || 0)}</strong><span>clientes</span></div>
-                        </div>
-                    </article>
-
-                    <article class="ops-panel ops-cash-card ${openCash ? 'is-open' : 'is-closed'}">
-                        <div class="ops-panel-head">
-                            <div>
-                                <span>CAIXA</span>
-                                <h2>${openCash ? 'Sessão aberta' : 'Sessão fechada'}</h2>
-                            </div>
-                            <span class="ops-cash-dot"></span>
-                        </div>
-                        <p>
-                            ${openCash
-                                ? `Esperado agora: R$ ${(Number(openCash.expected_cash_now_cents || 0) / 100).toFixed(2)}`
-                                : 'Abra o caixa antes de registrar movimentações em dinheiro.'}
-                        </p>
-                        <a href="#financeiro" class="ops-action-link">IR PARA O CAIXA ↗</a>
-                    </article>
-                </section>
-            </div>
-        `;
-    } catch (error) {
-        console.error('Owner dashboard error:', error);
-        content.innerHTML = `
-            <div class="content-inner">
-                <div class="alert alert-error">Erro ao carregar visão geral: ${sanitizeText(error.message || 'erro desconhecido')}</div>
-            </div>
-        `;
-    }
-}
-
-function checkExistingBooking() {
-    try {
-        const lastBooking = localStorage.getItem('last_appointment');
-        if (!lastBooking) return;
-
-        const booking = JSON.parse(lastBooking);
-        const bookingStatus = document.getElementById('booking-status');
-        if (bookingStatus) {
-            bookingStatus.style.display = 'block';
-            bookingStatus.innerHTML = `
-                <div class="card">
-                    <div class="card-title">Sua reserva</div>
-                    <p>Você tem um agendamento em aberto.</p>
-                    <a href="#agendamento" class="button button-secondary" style="margin-top: 1rem;">
-                        Ver detalhes
-                    </a>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error checking booking:', error);
-    }
-}
-
-async function renderBookingPage() {
+function renderBookingPage() {
     const content = document.getElementById('content');
     updateTopbar('Agendamento', 'Reserve seu horário');
 
@@ -1284,32 +1017,58 @@ function renderLocationPage() {
     updateTopbar('Localização', 'Barbearia Brooklyn · QS 121');
 
     content.innerHTML = `
-        <div class="content-inner location-pro">
-            <section class="location-layout">
-                <div class="location-copy">
-                    <span class="location-kicker">BROOKLYN / 121 / SAMAMBAIA</span>
-                    <h1>ENCONTRE<br><em>A GENTE.</em></h1>
+        <div class="content-inner brooklyn-location-v6-shell">
+            <section class="location-v6">
+                <div class="location-v6-copy">
+                    <span class="story-kicker">BROOKLYN / 121 / SAMAMBAIA</span>
+                    <h1>CHEGUE<br><em>CERTO.</em></h1>
+
                     <p>
-                        Unidade QS 121, Samambaia, Brasília — DF.
-                        Abra a rota no Google Maps para chegar com facilidade.
+                        Barbearia Brooklyn — Unidade QS 121, Samambaia, Brasília — DF.
+                        Abra a rota direto no Google Maps e use este bloco como apresentação comercial.
                     </p>
 
-                    <a href="${MAPS_URL}" target="_blank" rel="noopener noreferrer" class="editorial-cta">
-                        <span>ABRIR NO GOOGLE MAPS</span><b>↗</b>
-                    </a>
+                    <div class="location-v6-meta">
+                        <article>
+                            <span>UNIDADE</span>
+                            <strong>QS 121</strong>
+                        </article>
+                        <article>
+                            <span>CIDADE</span>
+                            <strong>Brasília · DF</strong>
+                        </article>
+                        <article>
+                            <span>REGIÃO</span>
+                            <strong>Samambaia</strong>
+                        </article>
+                    </div>
+
+                    <div class="hero-cta-row">
+                        <a href="${MAPS_URL}" target="_blank" rel="noopener noreferrer" class="editorial-cta">
+                            <span>ABRIR NO MAPS</span>
+                            <b>↗</b>
+                        </a>
+
+                        <a href="#agendamento" class="editorial-ghost-link">MARCAR HORÁRIO</a>
+                    </div>
                 </div>
 
-                <div class="location-map-art" aria-hidden="true">
-                    <div class="map-grid"></div>
-                    <div class="map-route route-a"></div>
-                    <div class="map-route route-b"></div>
-                    <div class="map-pin">
-                        <span></span>
+                <div class="location-v6-map">
+                    <div class="location-v6-map-head">
+                        <span>GOOGLE MAPS</span>
+                        <strong>BARBEARIA BROOKLYN</strong>
                     </div>
-                    <div class="map-number">121</div>
-                    <div class="map-caption">
-                        <span>QS 121</span>
-                        <strong>SAMAMBAIA</strong>
+
+                    <iframe
+                        title="Mapa da Barbearia Brooklyn QS 121"
+                        src="https://www.google.com/maps?q=Barbearia%20Brooklyn%20QS%20121%20Samambaia%20Brasilia%20DF&output=embed"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade">
+                    </iframe>
+
+                    <div class="location-v6-map-foot">
+                        <span>ROTA EXTERNA</span>
+                        <a href="${MAPS_URL}" target="_blank" rel="noopener noreferrer">ABRIR GOOGLE MAPS ↗</a>
                     </div>
                 </div>
             </section>
