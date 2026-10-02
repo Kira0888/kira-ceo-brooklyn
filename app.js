@@ -2951,25 +2951,37 @@ async function submitCommissionPayout(professionalId, payableCents) {
     }
 }
 
+// KIRA_REPORTS_ACCURACY_V16
+function formatReportCurrency(cents) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(Number(cents || 0) / 100);
+}
+
 async function renderReportsPage() {
     const content = document.getElementById('content');
-    updateTopbar('Relatórios', 'Indicadores operacionais e financeiros');
+    updateTopbar('Relatórios', 'Visão operacional e financeira atual');
 
     content.innerHTML = `
         <div class="content-inner">
-            <div style="text-align:center;padding:2rem;">
-                <div class="loading" style="display:inline-block;"></div> Carregando relatórios...
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Atualizando indicadores...</span>
             </div>
         </div>
     `;
 
     try {
-        if (!appState.workspaceData) {
-            await loadWorkspaceData();
+        // Relatórios não devem exibir snapshot antigo do workspace.
+        const loaded = await loadWorkspaceData();
+
+        if (!loaded || !appState.workspaceData) {
+            throw new Error('Não foi possível carregar os dados atualizados da unidade.');
         }
 
-        const agenda = appState.workspaceData?.agenda || [];
-        const financial = appState.workspaceData?.financial || {};
+        const agenda = appState.workspaceData.agenda || [];
+        const financial = appState.workspaceData.financial || {};
         const orders = financial.orders || [];
         const commission = financial.commission || [];
         const refunds = financial.refunds || [];
@@ -2983,74 +2995,194 @@ async function renderReportsPage() {
             cancelled: agenda.filter(a => a.state === 'CANCELLED').length
         };
 
-        const sales = orders.reduce((sum, o) => sum + Number(o.total_cents || 0), 0);
-        const received = orders.reduce((sum, o) => sum + Number(o.paid_cents || 0), 0);
-        const due = orders.reduce((sum, o) => sum + Number(o.balance_cents || 0), 0);
+        const sales = orders.reduce(
+            (sum, o) => sum + Number(o.total_cents || 0),
+            0
+        );
+
+        const received = orders.reduce(
+            (sum, o) => sum + Number(o.paid_cents || 0),
+            0
+        );
+
+        const due = orders.reduce(
+            (sum, o) => sum + Number(o.balance_cents || 0),
+            0
+        );
+
         const refunded = refunds
             .filter(r => r.status === 'CONFIRMED')
-            .reduce((sum, r) => sum + Number(r.amount_cents || 0), 0);
-        const commissionDue = commission.reduce((sum, c) => sum + Number(c.payable_cents || 0), 0);
-        const paidOut = payouts.reduce((sum, p) => sum + Number(p.amount_cents || 0), 0);
+            .reduce(
+                (sum, r) => sum + Number(r.amount_cents || 0),
+                0
+            );
+
+        const commissionDue = commission.reduce(
+            (sum, c) => sum + Number(c.payable_cents || 0),
+            0
+        );
+
+        const paidOut = payouts.reduce(
+            (sum, p) => sum + Number(p.amount_cents || 0),
+            0
+        );
+
+        const updatedAt = new Date().toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            dateStyle: 'short',
+            timeStyle: 'short'
+        });
 
         const html = `
-            <div class="finance-kpis">
-                <div class="metric-panel"><span>Atendimentos carregados</span><strong>${operational.total}</strong></div>
-                <div class="metric-panel"><span>Concluídos</span><strong>${operational.completed}</strong></div>
-                <div class="metric-panel"><span>Em atendimento</span><strong>${operational.inService}</strong></div>
-                <div class="metric-panel"><span>Faltas</span><strong>${operational.noShow}</strong></div>
-                <div class="metric-panel"><span>Cancelados</span><strong>${operational.cancelled}</strong></div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Financeiro do período carregado</div>
-                <div class="report-grid">
-                    <div><span>Vendas</span><strong>R$ ${(sales / 100).toFixed(2)}</strong></div>
-                    <div><span>Recebido líquido</span><strong>R$ ${(received / 100).toFixed(2)}</strong></div>
-                    <div><span>A receber</span><strong>R$ ${(due / 100).toFixed(2)}</strong></div>
-                    <div><span>Devoluções</span><strong>R$ ${(refunded / 100).toFixed(2)}</strong></div>
-                    <div><span>Repasses registrados</span><strong>R$ ${(paidOut / 100).toFixed(2)}</strong></div>
-                    <div><span>Comissões a pagar</span><strong>R$ ${(commissionDue / 100).toFixed(2)}</strong></div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Comissões por profissional</div>
-                ${commission.length ? `
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Profissional</th>
-                                    <th>Apurada</th>
-                                    <th>Ajustes</th>
-                                    <th>Repassada</th>
-                                    <th>A pagar</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${commission.map(c => `
-                                    <tr>
-                                        <td>${sanitizeText(c.display_name || '—')}</td>
-                                        <td>R$ ${(Number(c.accrued_cents || 0) / 100).toFixed(2)}</td>
-                                        <td>R$ ${(Number(c.adjustment_cents || 0) / 100).toFixed(2)}</td>
-                                        <td>R$ ${(Number(c.paid_out_cents || 0) / 100).toFixed(2)}</td>
-                                        <td><strong>R$ ${(Number(c.payable_cents || 0) / 100).toFixed(2)}</strong></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+            <div class="content-inner reports-pro">
+                <section class="module-heading reports-heading">
+                    <div>
+                        <span>RELATÓRIOS / VISÃO ATUAL</span>
+                        <h1>INDICADORES</h1>
+                        <p>
+                            Leitura operacional da agenda disponível e panorama financeiro
+                            carregado para a unidade.
+                        </p>
                     </div>
-                ` : '<p class="text-muted">Nenhuma comissão apurada.</p>'}
+
+                    <div class="reports-refresh-meta">
+                        <span>ATUALIZADO</span>
+                        <strong>${sanitizeText(updatedAt)}</strong>
+                    </div>
+                </section>
+
+                <section class="finance-kpis reports-kpis" aria-label="Indicadores operacionais">
+                    <div class="metric-panel">
+                        <span>Na agenda</span>
+                        <strong>${operational.total}</strong>
+                    </div>
+
+                    <div class="metric-panel">
+                        <span>Concluídos</span>
+                        <strong>${operational.completed}</strong>
+                    </div>
+
+                    <div class="metric-panel">
+                        <span>Em atendimento</span>
+                        <strong>${operational.inService}</strong>
+                    </div>
+
+                    <div class="metric-panel">
+                        <span>Faltas</span>
+                        <strong>${operational.noShow}</strong>
+                    </div>
+
+                    <div class="metric-panel">
+                        <span>Cancelados</span>
+                        <strong>${operational.cancelled}</strong>
+                    </div>
+                </section>
+
+                <section class="card report-section-card">
+                    <div class="report-section-head">
+                        <div>
+                            <span>FINANCEIRO</span>
+                            <div class="card-title">Consolidado financeiro atual</div>
+                        </div>
+
+                        <p>
+                            Valores consolidados do conjunto financeiro carregado para a unidade.
+                        </p>
+                    </div>
+
+                    <div class="report-grid">
+                        <div>
+                            <span>Vendas</span>
+                            <strong>${formatReportCurrency(sales)}</strong>
+                        </div>
+
+                        <div>
+                            <span>Recebido líquido</span>
+                            <strong>${formatReportCurrency(received)}</strong>
+                        </div>
+
+                        <div>
+                            <span>A receber</span>
+                            <strong>${formatReportCurrency(due)}</strong>
+                        </div>
+
+                        <div>
+                            <span>Devoluções</span>
+                            <strong>${formatReportCurrency(refunded)}</strong>
+                        </div>
+
+                        <div>
+                            <span>Repasses registrados</span>
+                            <strong>${formatReportCurrency(paidOut)}</strong>
+                        </div>
+
+                        <div>
+                            <span>Comissões a pagar</span>
+                            <strong>${formatReportCurrency(commissionDue)}</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card report-section-card">
+                    <div class="report-section-head">
+                        <div>
+                            <span>COMISSIONAMENTO</span>
+                            <div class="card-title">Comissões por profissional</div>
+                        </div>
+
+                        <p>
+                            Posição atual de valores apurados, ajustes, repasses e saldo pendente.
+                        </p>
+                    </div>
+
+                    ${commission.length ? `
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Profissional</th>
+                                        <th>Apurada</th>
+                                        <th>Ajustes</th>
+                                        <th>Repassada</th>
+                                        <th>A pagar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${commission.map(c => `
+                                        <tr>
+                                            <td>${sanitizeText(c.display_name || '—')}</td>
+                                            <td>${formatReportCurrency(c.accrued_cents)}</td>
+                                            <td class="${Number(c.adjustment_cents || 0) < 0 ? 'amount-negative' : ''}">
+                                                ${formatReportCurrency(c.adjustment_cents)}
+                                            </td>
+                                            <td>${formatReportCurrency(c.paid_out_cents)}</td>
+                                            <td>
+                                                <strong>${formatReportCurrency(c.payable_cents)}</strong>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : `
+                        <div class="ops-empty">
+                            <strong>Nenhuma comissão apurada</strong>
+                            <span>Os valores aparecerão aqui após a movimentação financeira dos atendimentos.</span>
+                        </div>
+                    `}
+                </section>
             </div>
         `;
 
-        content.innerHTML = `<div class="content-inner">${html}</div>`;
+        content.innerHTML = html;
     } catch (error) {
         console.error('Reports page error:', error);
+
         content.innerHTML = `
             <div class="content-inner">
                 <div class="alert alert-error">
-                    Erro ao carregar relatórios: ${sanitizeText(error.message || 'erro desconhecido')}
+                    Erro ao carregar relatórios:
+                    ${sanitizeText(error.message || 'erro desconhecido')}
                 </div>
             </div>
         `;
