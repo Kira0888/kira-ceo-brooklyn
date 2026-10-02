@@ -4476,3 +4476,227 @@ body.public-shell .content-inner {
 .config-archive[open] > summary {
     color: #d3cbbc;
 }
+
+
+/* KIRA CONFIG LINKS HOURS V19 */
+
+.config-link-groups,
+.config-hours-groups {
+    display: grid;
+    gap: .9rem;
+}
+
+.config-link-group,
+.config-hours-group {
+    border: 1px solid #2b2925;
+    background: #121210;
+}
+
+.config-link-group-head,
+.config-hours-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #2b2925;
+}
+
+.config-link-group-head > div,
+.config-hours-group-head > div {
+    display: grid;
+    gap: .2rem;
+}
+
+.config-link-group-head span,
+.config-hours-group-head span {
+    color: #80796f;
+    font-size: .52rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+}
+
+.config-link-group-head strong,
+.config-hours-group-head strong {
+    color: #eee7da;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: 1rem;
+}
+
+.config-service-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    padding: 1rem 1.1rem 1.1rem;
+}
+
+.config-service-tags span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: .38rem .65rem;
+    border: 1px solid rgba(209,170,91,.24);
+    color: #d7c9ae;
+    background: rgba(209,170,91,.035);
+    font-size: .68rem;
+}
+
+.config-service-tags small {
+    color: #746e64;
+}
+
+.config-service-checklist {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: .65rem;
+    margin-bottom: 1rem;
+}
+
+.config-service-option {
+    display: grid;
+    grid-template-columns: auto minmax(0,1fr);
+    gap: .75rem;
+    align-items: start;
+    padding: .85rem;
+    border: 1px solid #2a2824;
+    background: #11110f;
+    cursor: pointer;
+}
+
+.config-service-option input {
+    margin-top: .2rem;
+}
+
+.config-service-option span {
+    display: grid;
+    gap: .2rem;
+}
+
+.config-service-option strong {
+    color: #ddd5c8;
+    font-size: .78rem;
+}
+
+.config-service-option small {
+    color: #746e64;
+}
+
+#professional-services-save[aria-busy="true"],
+#professional-hours-save[aria-busy="true"] {
+    cursor: wait;
+    opacity: .62;
+}
+
+.config-week-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0,1fr));
+    gap: 1px;
+    background: #2b2925;
+}
+
+.config-week-strip > div {
+    min-width: 0;
+    padding: .85rem .7rem;
+    background: #11110f;
+    display: grid;
+    gap: .25rem;
+}
+
+.config-week-strip span {
+    color: #7c756a;
+    font-size: .52rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+}
+
+.config-week-strip strong {
+    color: #d9d1c4;
+    font-size: .68rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.config-week-strip .is-closed strong {
+    color: #625d55;
+}
+
+.config-hours-editor {
+    display: grid;
+    gap: .7rem;
+    margin-bottom: 1rem;
+}
+
+.config-hours-row {
+    display: grid;
+    grid-template-columns: minmax(170px, .8fr) minmax(0,1.2fr);
+    gap: 1rem;
+    align-items: center;
+    padding: .9rem 1rem;
+    border: 1px solid #2a2824;
+    background: #11110f;
+}
+
+.config-hours-day {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+}
+
+.config-hours-day strong {
+    color: #ded6c9;
+    font-size: .78rem;
+}
+
+.config-hours-day label {
+    color: #817a70;
+    font-size: .68rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.config-hours-times {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .8rem;
+}
+
+.config-hours-times .form-group {
+    margin: 0;
+}
+
+@media (max-width: 900px) {
+    .config-week-strip {
+        grid-template-columns: repeat(4, minmax(0,1fr));
+    }
+
+    .config-service-checklist {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .config-link-group-head,
+    .config-hours-group-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .config-link-group-head .button,
+    .config-hours-group-head .button {
+        width: 100%;
+    }
+
+    .config-week-strip {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .config-hours-row {
+        grid-template-columns: 1fr;
+    }
+
+    .config-hours-times {
+        grid-template-columns: 1fr 1fr;
+    }
+}

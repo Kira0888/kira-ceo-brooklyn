@@ -4218,140 +4218,746 @@ async function submitAddProfessional() {
     return submitProfessionalForm();
 }
 
+// KIRA_CONFIG_LINKS_HOURS_V19
 async function showProfessionalServicesConfig() {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando vínculos...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando vínculos...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const [{ data: professionals, error: profError }, { data: services, error: servError }, { data: links, error: linkError }] = await Promise.all([
-            appState.supabaseClient.from('professionals').select('id,display_name,active').eq('organization_id', orgId),
-            appState.supabaseClient.from('services').select('id,name,active').eq('organization_id', orgId),
-            appState.supabaseClient.from('professional_services').select('professional_id,service_id').eq('organization_id', orgId)
+        const [
+            { data: professionals, error: profError },
+            { data: services, error: servError },
+            { data: links, error: linkError }
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active')
+                .eq('organization_id', orgId)
+                .eq('active', true)
+                .order('display_name'),
+
+            appState.supabaseClient
+                .from('services')
+                .select('id,name,active')
+                .eq('organization_id', orgId)
+                .eq('active', true)
+                .order('name'),
+
+            appState.supabaseClient
+                .from('professional_services')
+                .select('professional_id,service_id')
+                .eq('organization_id', orgId)
         ]);
-        if (profError) throw profError; if (servError) throw servError; if (linkError) throw linkError;
-        const pMap = Object.fromEntries((professionals || []).map(p => [p.id, p]));
-        const sMap = Object.fromEntries((services || []).map(s => [s.id, s]));
+
+        if (profError) throw profError;
+        if (servError) throw servError;
+        if (linkError) throw linkError;
+
+        const activeProfessionalIds = new Set(
+            (professionals || []).map(p => p.id)
+        );
+
+        const activeServiceIds = new Set(
+            (services || []).map(s => s.id)
+        );
+
+        const activeLinks = (links || []).filter(link =>
+            activeProfessionalIds.has(link.professional_id) &&
+            activeServiceIds.has(link.service_id)
+        );
+
+        const linksByProfessional = {};
+
+        for (const link of activeLinks) {
+            if (!linksByProfessional[link.professional_id]) {
+                linksByProfessional[link.professional_id] = new Set();
+            }
+
+            linksByProfessional[link.professional_id].add(link.service_id);
+        }
+
         configContent.innerHTML = `
-            <div class="card"><div class="card-title">Vínculos profissional × serviço</div>
-            <button class="button button-primary" onclick="showAddProfessionalServiceForm()" style="margin-bottom:1rem">Adicionar vínculo</button>
-            ${(links || []).length ? `<table><thead><tr><th>Profissional</th><th>Serviço</th></tr></thead><tbody>${(links || []).map(l => `<tr><td>${sanitizeText(pMap[l.professional_id]?.display_name || '—')}</td><td>${sanitizeText(sMap[l.service_id]?.name || '—')}</td></tr>`).join('')}</tbody></table>` : '<p class="text-muted">Nenhum vínculo cadastrado</p>'}
-            </div>`;
+            <div class="card config-list-card">
+                <div class="config-list-head">
+                    <div>
+                        <span>VÍNCULOS</span>
+                        <div class="card-title">Profissional × serviço</div>
+                        <p>
+                            Defina exatamente quais serviços cada profissional
+                            pode receber no agendamento.
+                        </p>
+                    </div>
+                </div>
+
+                ${(professionals || []).length ? `
+                    <div class="config-link-groups">
+                        ${(professionals || []).map(professional => {
+                            const serviceIds =
+                                linksByProfessional[professional.id] || new Set();
+
+                            const linkedServices =
+                                (services || []).filter(service =>
+                                    serviceIds.has(service.id)
+                                );
+
+                            return `
+                                <section class="config-link-group">
+                                    <div class="config-link-group-head">
+                                        <div>
+                                            <span>PROFISSIONAL</span>
+                                            <strong>
+                                                ${sanitizeText(professional.display_name)}
+                                            </strong>
+                                        </div>
+
+                                        <button
+                                            class="button button-secondary compact-action"
+                                            onclick="showProfessionalServiceManager('${professional.id}')"
+                                        >
+                                            Gerenciar serviços
+                                        </button>
+                                    </div>
+
+                                    <div class="config-service-tags">
+                                        ${linkedServices.length ? linkedServices.map(service => `
+                                            <span>
+                                                ${sanitizeText(service.name)}
+                                            </span>
+                                        `).join('') : `
+                                            <small>Nenhum serviço vinculado</small>
+                                        `}
+                                    </div>
+                                </section>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : `
+                    <div class="ops-empty">
+                        <strong>Nenhum profissional ativo</strong>
+                        <span>Cadastre ou restaure um profissional antes de criar vínculos.</span>
+                    </div>
+                `}
+            </div>
+        `;
     } catch (error) {
         console.error('Load professional services config error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar vínculos: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar vínculos: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
 }
 
-async function showAddProfessionalServiceForm() {
+async function showProfessionalServiceManager(professionalId) {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando serviços...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const [{ data: professionals, error: profError }, { data: services, error: servError }] = await Promise.all([
-            appState.supabaseClient.from('professionals').select('id,display_name,active').eq('organization_id', orgId).eq('active', true).order('display_name'),
-            appState.supabaseClient.from('services').select('id,name,active').eq('organization_id', orgId).eq('active', true).order('name')
+        const [
+            { data: professional, error: profError },
+            { data: services, error: servError },
+            { data: links, error: linkError }
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active')
+                .eq('organization_id', orgId)
+                .eq('id', professionalId)
+                .eq('active', true)
+                .maybeSingle(),
+
+            appState.supabaseClient
+                .from('services')
+                .select('id,name,active')
+                .eq('organization_id', orgId)
+                .eq('active', true)
+                .order('name'),
+
+            appState.supabaseClient
+                .from('professional_services')
+                .select('service_id')
+                .eq('organization_id', orgId)
+                .eq('professional_id', professionalId)
         ]);
-        if (profError) throw profError; if (servError) throw servError;
+
+        if (profError) throw profError;
+        if (servError) throw servError;
+        if (linkError) throw linkError;
+
+        if (!professional) {
+            showAlert('Profissional não encontrado ou inativo', 'error');
+            return showProfessionalServicesConfig();
+        }
+
+        const selected = new Set((links || []).map(link => link.service_id));
+
         configContent.innerHTML = `
-            <div class="card" style="max-width:500px"><div class="card-title">Novo vínculo</div>
-            <div class="form-group"><label>Profissional</label><select id="prof-select"><option value="">Selecione</option>${(professionals || []).map(p => `<option value="${p.id}">${sanitizeText(p.display_name)}</option>`).join('')}</select></div>
-            <div class="form-group"><label>Serviço</label><select id="service-select-link"><option value="">Selecione</option>${(services || []).map(s => `<option value="${s.id}">${sanitizeText(s.name)}</option>`).join('')}</select></div>
-            <div class="button-group"><button class="button button-primary" onclick="submitAddProfessionalService()">Vincular</button><button class="button button-secondary" onclick="showProfessionalServicesConfig()">Cancelar</button></div>
-            </div>`;
+            <div class="card form-card config-edit-card">
+                <div class="config-form-heading">
+                    <span>VÍNCULOS</span>
+                    <div class="card-title">
+                        ${sanitizeText(professional.display_name)}
+                    </div>
+                    <p class="text-muted">
+                        Marque os serviços que este profissional executa.
+                    </p>
+                </div>
+
+                <div
+                    id="professional-service-options"
+                    class="config-service-checklist"
+                    data-professional-id="${professional.id}"
+                >
+                    ${(services || []).map(service => `
+                        <label class="config-service-option">
+                            <input
+                                type="checkbox"
+                                value="${service.id}"
+                                ${selected.has(service.id) ? 'checked' : ''}
+                            >
+                            <span>
+                                <strong>${sanitizeText(service.name)}</strong>
+                                <small>
+                                    ${selected.has(service.id)
+                                        ? 'Vinculado atualmente'
+                                        : 'Não vinculado'}
+                                </small>
+                            </span>
+                        </label>
+                    `).join('')}
+                </div>
+
+                <div class="button-group">
+                    <button
+                        class="button button-primary"
+                        id="professional-services-save"
+                        onclick="submitProfessionalServiceManager('${professional.id}')"
+                    >
+                        Salvar vínculos
+                    </button>
+
+                    <button
+                        class="button button-secondary"
+                        onclick="showProfessionalServicesConfig()"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
     } catch (error) {
-        console.error('Load professional service form error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar formulário: ${sanitizeText(error.message)}</div>`;
+        console.error('Load professional service manager error:', error);
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar vínculos: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
+}
+
+async function submitProfessionalServiceManager(professionalId) {
+    const requestKey = `professional-services:${professionalId}`;
+    const button = document.getElementById('professional-services-save');
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const orgId = appState.workspaceData?.organization?.id;
+        const container = document.getElementById('professional-service-options');
+
+        if (!container) {
+            showAlert('Não foi possível ler os vínculos selecionados', 'error');
+            return;
+        }
+
+        const selectedServiceIds = Array.from(
+            container.querySelectorAll('input[type="checkbox"]:checked')
+        ).map(input => input.value);
+
+        const { data: existingLinks, error: existingError } =
+            await appState.supabaseClient
+                .from('professional_services')
+                .select('service_id')
+                .eq('organization_id', orgId)
+                .eq('professional_id', professionalId);
+
+        if (existingError) throw existingError;
+
+        const existingIds = new Set(
+            (existingLinks || []).map(link => link.service_id)
+        );
+
+        const selectedIds = new Set(selectedServiceIds);
+
+        const toAdd = selectedServiceIds
+            .filter(serviceId => !existingIds.has(serviceId));
+
+        const toRemove = Array.from(existingIds)
+            .filter(serviceId => !selectedIds.has(serviceId));
+
+        configurationMutationRequests.add(requestKey);
+        setConfigButtonBusy(button, true, 'Salvando...');
+
+        if (toRemove.length) {
+            const { error: deleteError } = await appState.supabaseClient
+                .from('professional_services')
+                .delete()
+                .eq('organization_id', orgId)
+                .eq('professional_id', professionalId)
+                .in('service_id', toRemove);
+
+            if (deleteError) throw deleteError;
+        }
+
+        if (toAdd.length) {
+            const rows = toAdd.map(serviceId => ({
+                organization_id: orgId,
+                professional_id: professionalId,
+                service_id: serviceId
+            }));
+
+            const { error: insertError } = await appState.supabaseClient
+                .from('professional_services')
+                .upsert(rows, {
+                    onConflict: 'professional_id,service_id'
+                });
+
+            if (insertError) throw insertError;
+        }
+
+        await refreshConfigurationWorkspace();
+
+        showAlert('Vínculos atualizados com sucesso', 'success');
+        await showProfessionalServicesConfig();
+    } catch (error) {
+        console.error('Save professional services error:', error);
+        showAlert('Erro ao salvar vínculos: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setConfigButtonBusy(button, false);
+        }
+    }
+}
+
+// Compatibilidade com chamadas antigas.
+async function showAddProfessionalServiceForm() {
+    return showProfessionalServicesConfig();
 }
 
 async function submitAddProfessionalService() {
-    try {
-        const profId = document.getElementById('prof-select').value;
-        const serviceId = document.getElementById('service-select-link').value;
-        const orgId = appState.workspaceData?.organization?.id;
-        if (!profId || !serviceId) { showAlert('Selecione profissional e serviço', 'error'); return; }
-        const { error } = await appState.supabaseClient.from('professional_services').upsert([{
-            organization_id: orgId, professional_id: profId, service_id: serviceId
-        }], { onConflict: 'professional_id,service_id' });
-        if (error) throw error;
-        appState.workspaceData = null; await loadWorkspaceData();
-        showAlert('Vínculo salvo com sucesso', 'success');
-        setTimeout(() => showProfessionalServicesConfig(), 500);
-    } catch (error) {
-        console.error('Add professional service error:', error);
-        showAlert('Erro ao salvar vínculo: ' + error.message, 'error');
-    }
+    return showProfessionalServicesConfig();
 }
 
 async function showProfessionalHoursConfig() {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando expedientes...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando expedientes...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const [{ data: professionals, error: profError }, { data: hours, error: hoursError }] = await Promise.all([
-            appState.supabaseClient.from('professionals').select('id,display_name,active').eq('organization_id', orgId),
-            appState.supabaseClient.from('professional_hours').select('professional_id,weekday,opens_at,closes_at,closed').eq('organization_id', orgId).order('weekday')
+        const [
+            { data: professionals, error: profError },
+            { data: hours, error: hoursError }
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active')
+                .eq('organization_id', orgId)
+                .eq('active', true)
+                .order('display_name'),
+
+            appState.supabaseClient
+                .from('professional_hours')
+                .select('professional_id,weekday,opens_at,closes_at,closed')
+                .eq('organization_id', orgId)
+                .order('weekday')
         ]);
-        if (profError) throw profError; if (hoursError) throw hoursError;
-        const pMap = Object.fromEntries((professionals || []).map(p => [p.id, p.display_name]));
-        const days = {1:'Segunda',2:'Terça',3:'Quarta',4:'Quinta',5:'Sexta',6:'Sábado',7:'Domingo'};
+
+        if (profError) throw profError;
+        if (hoursError) throw hoursError;
+
+        const dayNames = {
+            1: 'Seg',
+            2: 'Ter',
+            3: 'Qua',
+            4: 'Qui',
+            5: 'Sex',
+            6: 'Sáb',
+            7: 'Dom'
+        };
+
+        const hoursMap = {};
+
+        for (const row of (hours || [])) {
+            if (!hoursMap[row.professional_id]) {
+                hoursMap[row.professional_id] = {};
+            }
+
+            hoursMap[row.professional_id][row.weekday] = row;
+        }
+
         configContent.innerHTML = `
-            <div class="card"><div class="card-title">Expediente</div>
-            <button class="button button-primary" onclick="showAddProfessionalHoursForm()" style="margin-bottom:1rem">Adicionar/editar expediente</button>
-            ${(hours || []).length ? `<table><thead><tr><th>Profissional</th><th>Dia</th><th>Horário</th></tr></thead><tbody>${(hours || []).map(h => `<tr><td>${sanitizeText(pMap[h.professional_id] || '—')}</td><td>${days[h.weekday] || h.weekday}</td><td>${h.closed ? 'Fechado' : `${String(h.opens_at || '').slice(0,5)}–${String(h.closes_at || '').slice(0,5)}`}</td></tr>`).join('')}</tbody></table>` : '<p class="text-muted">Nenhum expediente configurado</p>'}
-            </div>`;
+            <div class="card config-list-card">
+                <div class="config-list-head">
+                    <div>
+                        <span>EXPEDIENTE</span>
+                        <div class="card-title">Jornada semanal</div>
+                        <p>
+                            Configure a disponibilidade semanal completa
+                            de cada profissional em uma única tela.
+                        </p>
+                    </div>
+                </div>
+
+                ${(professionals || []).length ? `
+                    <div class="config-hours-groups">
+                        ${(professionals || []).map(professional => `
+                            <section class="config-hours-group">
+                                <div class="config-hours-group-head">
+                                    <div>
+                                        <span>PROFISSIONAL</span>
+                                        <strong>
+                                            ${sanitizeText(professional.display_name)}
+                                        </strong>
+                                    </div>
+
+                                    <button
+                                        class="button button-secondary compact-action"
+                                        onclick="showProfessionalHoursEditor('${professional.id}')"
+                                    >
+                                        Editar semana
+                                    </button>
+                                </div>
+
+                                <div class="config-week-strip">
+                                    ${[1,2,3,4,5,6,7].map(weekday => {
+                                        const row =
+                                            hoursMap[professional.id]?.[weekday];
+
+                                        const label =
+                                            !row || row.closed
+                                                ? 'Fechado'
+                                                : `${String(row.opens_at || '').slice(0,5)}–${String(row.closes_at || '').slice(0,5)}`;
+
+                                        return `
+                                            <div class="${!row || row.closed ? 'is-closed' : ''}">
+                                                <span>${dayNames[weekday]}</span>
+                                                <strong>${label}</strong>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </section>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <div class="ops-empty">
+                        <strong>Nenhum profissional ativo</strong>
+                        <span>Cadastre ou restaure um profissional para configurar o expediente.</span>
+                    </div>
+                `}
+            </div>
+        `;
     } catch (error) {
         console.error('Load professional hours config error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar expedientes: ${sanitizeText(error.message)}</div>`;
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar expedientes: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
 }
 
-async function showAddProfessionalHoursForm() {
+async function showProfessionalHoursEditor(professionalId) {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
-    configContent.innerHTML = '<div class="card"><div style="text-align:center;padding:2rem"><div class="loading" style="display:inline-block"></div> Carregando...</div></div>';
+
+    configContent.innerHTML = `
+        <div class="card">
+            <div class="ops-loading">
+                <div class="loading"></div>
+                <span>Carregando semana...</span>
+            </div>
+        </div>
+    `;
+
     try {
-        const { data: professionals, error } = await appState.supabaseClient.from('professionals').select('id,display_name,active').eq('organization_id', orgId).eq('active', true).order('display_name');
-        if (error) throw error;
-        const weekdays = [{id:1,name:'Segunda'},{id:2,name:'Terça'},{id:3,name:'Quarta'},{id:4,name:'Quinta'},{id:5,name:'Sexta'},{id:6,name:'Sábado'},{id:7,name:'Domingo'}];
+        const [
+            { data: professional, error: profError },
+            { data: hours, error: hoursError }
+        ] = await Promise.all([
+            appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active')
+                .eq('organization_id', orgId)
+                .eq('id', professionalId)
+                .eq('active', true)
+                .maybeSingle(),
+
+            appState.supabaseClient
+                .from('professional_hours')
+                .select('weekday,opens_at,closes_at,closed')
+                .eq('organization_id', orgId)
+                .eq('professional_id', professionalId)
+        ]);
+
+        if (profError) throw profError;
+        if (hoursError) throw hoursError;
+
+        if (!professional) {
+            showAlert('Profissional não encontrado ou inativo', 'error');
+            return showProfessionalHoursConfig();
+        }
+
+        const existing = Object.fromEntries(
+            (hours || []).map(row => [row.weekday, row])
+        );
+
+        const weekdays = [
+            { id: 1, name: 'Segunda-feira' },
+            { id: 2, name: 'Terça-feira' },
+            { id: 3, name: 'Quarta-feira' },
+            { id: 4, name: 'Quinta-feira' },
+            { id: 5, name: 'Sexta-feira' },
+            { id: 6, name: 'Sábado' },
+            { id: 7, name: 'Domingo' }
+        ];
+
         configContent.innerHTML = `
-            <div class="card" style="max-width:500px"><div class="card-title">Expediente</div>
-            <div class="form-group"><label>Profissional</label><select id="prof-hours-select"><option value="">Selecione</option>${(professionals || []).map(p => `<option value="${p.id}">${sanitizeText(p.display_name)}</option>`).join('')}</select></div>
-            <div class="form-group"><label>Dia da semana</label><select id="weekday-select"><option value="">Selecione</option>${weekdays.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}</select></div>
-            <div class="form-group"><label>Abertura</label><input type="time" id="hours-opens"></div>
-            <div class="form-group"><label>Fechamento</label><input type="time" id="hours-closes"></div>
-            <div class="form-group"><label><input type="checkbox" id="hours-closed"> Fechado neste dia</label></div>
-            <div class="button-group"><button class="button button-primary" onclick="submitAddProfessionalHours()">Salvar</button><button class="button button-secondary" onclick="showProfessionalHoursConfig()">Cancelar</button></div>
-            </div>`;
+            <div class="card form-card config-edit-card">
+                <div class="config-form-heading">
+                    <span>EXPEDIENTE</span>
+                    <div class="card-title">
+                        ${sanitizeText(professional.display_name)}
+                    </div>
+                    <p class="text-muted">
+                        Configure abertura, fechamento ou marque o dia como fechado.
+                    </p>
+                </div>
+
+                <div
+                    id="professional-hours-week"
+                    class="config-hours-editor"
+                    data-professional-id="${professional.id}"
+                >
+                    ${weekdays.map(day => {
+                        const row = existing[day.id] || null;
+                        const closed = row ? Boolean(row.closed) : true;
+
+                        return `
+                            <div class="config-hours-row" data-weekday="${day.id}">
+                                <div class="config-hours-day">
+                                    <strong>${day.name}</strong>
+
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            class="hours-closed-toggle"
+                                            ${closed ? 'checked' : ''}
+                                            onchange="syncProfessionalHoursRow(this)"
+                                        >
+                                        Fechado
+                                    </label>
+                                </div>
+
+                                <div class="config-hours-times">
+                                    <div class="form-group">
+                                        <label>Abertura</label>
+                                        <input
+                                            type="time"
+                                            class="hours-opens-input"
+                                            value="${closed ? '' : String(row?.opens_at || '').slice(0,5)}"
+                                            ${closed ? 'disabled' : ''}
+                                        >
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Fechamento</label>
+                                        <input
+                                            type="time"
+                                            class="hours-closes-input"
+                                            value="${closed ? '' : String(row?.closes_at || '').slice(0,5)}"
+                                            ${closed ? 'disabled' : ''}
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="button-group">
+                    <button
+                        class="button button-primary"
+                        id="professional-hours-save"
+                        onclick="submitProfessionalHoursWeek('${professional.id}')"
+                    >
+                        Salvar semana
+                    </button>
+
+                    <button
+                        class="button button-secondary"
+                        onclick="showProfessionalHoursConfig()"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
     } catch (error) {
-        console.error('Load professional hours form error:', error);
-        configContent.innerHTML = `<div class="alert alert-error">Erro ao carregar formulário: ${sanitizeText(error.message)}</div>`;
+        console.error('Load professional hours editor error:', error);
+
+        configContent.innerHTML = `
+            <div class="alert alert-error">
+                Erro ao carregar expediente: ${sanitizeText(error.message)}
+            </div>
+        `;
     }
+}
+
+function syncProfessionalHoursRow(toggle) {
+    const row = toggle.closest('.config-hours-row');
+
+    if (!row) return;
+
+    const opens = row.querySelector('.hours-opens-input');
+    const closes = row.querySelector('.hours-closes-input');
+    const closed = toggle.checked;
+
+    opens.disabled = closed;
+    closes.disabled = closed;
+
+    if (closed) {
+        opens.value = '';
+        closes.value = '';
+    }
+}
+
+async function submitProfessionalHoursWeek(professionalId) {
+    const requestKey = `professional-hours:${professionalId}`;
+    const button = document.getElementById('professional-hours-save');
+
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const orgId = appState.workspaceData?.organization?.id;
+        const week = document.getElementById('professional-hours-week');
+
+        if (!week) {
+            showAlert('Não foi possível ler o expediente', 'error');
+            return;
+        }
+
+        const rows = Array.from(
+            week.querySelectorAll('.config-hours-row')
+        );
+
+        const payload = [];
+
+        for (const row of rows) {
+            const weekday = Number(row.dataset.weekday);
+            const closed =
+                row.querySelector('.hours-closed-toggle').checked;
+
+            const opensAt =
+                row.querySelector('.hours-opens-input').value;
+
+            const closesAt =
+                row.querySelector('.hours-closes-input').value;
+
+            if (!closed) {
+                if (!opensAt || !closesAt) {
+                    showAlert(
+                        `Preencha abertura e fechamento do dia ${weekday}`,
+                        'error'
+                    );
+                    return;
+                }
+
+                if (closesAt <= opensAt) {
+                    showAlert(
+                        'O horário de fechamento deve ser maior que o de abertura',
+                        'error'
+                    );
+                    return;
+                }
+            }
+
+            payload.push({
+                organization_id: orgId,
+                professional_id: professionalId,
+                weekday,
+                opens_at: closed ? null : opensAt,
+                closes_at: closed ? null : closesAt,
+                closed
+            });
+        }
+
+        configurationMutationRequests.add(requestKey);
+        setConfigButtonBusy(button, true, 'Salvando...');
+
+        const { error } = await appState.supabaseClient
+            .from('professional_hours')
+            .upsert(payload, {
+                onConflict: 'professional_id,weekday'
+            });
+
+        if (error) throw error;
+
+        await refreshConfigurationWorkspace();
+
+        showAlert('Expediente semanal atualizado', 'success');
+        await showProfessionalHoursConfig();
+    } catch (error) {
+        console.error('Save professional hours error:', error);
+        showAlert('Erro ao salvar expediente: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+
+        if (button && document.body.contains(button)) {
+            setConfigButtonBusy(button, false);
+        }
+    }
+}
+
+// Compatibilidade com chamadas antigas.
+async function showAddProfessionalHoursForm() {
+    return showProfessionalHoursConfig();
 }
 
 async function submitAddProfessionalHours() {
-    try {
-        const profId = document.getElementById('prof-hours-select').value;
-        const weekday = Number(document.getElementById('weekday-select').value);
-        const opensAt = document.getElementById('hours-opens').value;
-        const closesAt = document.getElementById('hours-closes').value;
-        const closed = document.getElementById('hours-closed').checked;
-        const orgId = appState.workspaceData?.organization?.id;
-        if (!profId || !Number.isInteger(weekday) || weekday < 1 || weekday > 7 || (!closed && (!opensAt || !closesAt))) {
-            showAlert('Preencha os dados obrigatórios', 'error'); return;
-        }
-        const { error } = await appState.supabaseClient.from('professional_hours').upsert([{
-            organization_id: orgId, professional_id: profId, weekday,
-            opens_at: closed ? null : opensAt, closes_at: closed ? null : closesAt, closed
-        }], { onConflict: 'professional_id,weekday' });
-        if (error) throw error;
-        appState.workspaceData = null; await loadWorkspaceData();
-        showAlert('Expediente salvo com sucesso', 'success');
-        setTimeout(() => showProfessionalHoursConfig(), 500);
-    } catch (error) {
-        console.error('Add professional hours error:', error);
-        showAlert('Erro ao salvar expediente: ' + error.message, 'error');
-    }
+    return showProfessionalHoursConfig();
 }
 
 async function showCommissionRulesConfig() {
