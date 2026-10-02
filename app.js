@@ -1814,6 +1814,7 @@ function renderInitialOwnerActivation() {
 // Fluxo legado de ativação removido.
 // O proprietário já possui membership OWNER persistente no banco.
 
+// KIRA_ACCOUNT_ACCESS_V24_4
 function renderLoggedInAuth() {
     if (!appState.currentUser || !appState.currentSession) {
         renderLoginForm();
@@ -1830,9 +1831,37 @@ function renderLoggedInAuth() {
         return;
     }
 
-    if (appState.currentPage === 'acesso-interno') {
-        navigateTo('home');
-    }
+    if (appState.currentPage !== 'acesso-interno') return;
+
+    const content = document.getElementById('content');
+    const roleLabels = {
+        OWNER: 'Proprietário',
+        RECEPTION: 'Recepção',
+        BARBER: 'Profissional'
+    };
+
+    updateTopbar('Minha conta', 'Sessão ativa');
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="card internal-login-card">
+                <div class="internal-login-head">
+                    <span>MINHA CONTA</span>
+                    <div class="card-title">Você está conectado</div>
+                    <p>${sanitizeText(appState.currentUser.email || '')}</p>
+                </div>
+                <p>Perfil: <strong>${sanitizeText(roleLabels[appState.userRole] || 'Equipe')}</strong></p>
+                <div class="button-group" style="margin-top:1rem;">
+                    <button class="button button-primary" id="dashboard-btn">Abrir gestão</button>
+                    <button class="button button-secondary" id="logout-btn">Sair</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('dashboard-btn')
+        .addEventListener('click', () => navigateTo('home'));
+    document.getElementById('logout-btn')
+        .addEventListener('click', handleLogout);
 }
 
 async function handleLogout() {
