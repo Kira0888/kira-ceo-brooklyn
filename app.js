@@ -1407,61 +1407,9 @@ function renderInitialOwnerActivation() {
     renderAccessRecoveryState();
 }
 
-function renderInitialOwnerActivation() {
-    const content = document.getElementById('content');
-    updateTopbar('Ativar conta', 'Primeira configuração');
-
-    content.innerHTML = `
-        <div class="content-inner">
-            <div class="card" style="max-width: 400px; margin: 2rem auto;">
-                <div class="card-title">Ativar como proprietário</div>
-                <p style="color: #666; margin-bottom: 1rem;">
-                    Digite o código de ativação fornecido para configurar a conta como proprietário.
-                </p>
-
-                <div class="form-group">
-                    <label>Código de ativação</label>
-                    <input type="text" id="activation-code" placeholder="Digite o código">
-                </div>
-
-                <button class="button button-primary" id="activate-btn" style="width: 100%;">Ativar</button>
-
-                <div id="auth-message" style="margin-top: 1rem;"></div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('activate-btn').addEventListener('click', handleOwnerActivation);
-}
-
-async function handleOwnerActivation() {
-    try {
-        const token = document.getElementById('activation-code').value.trim();
-
-        if (!token) {
-            showMessage('Digite o código de ativação', 'error');
-            return;
-        }
-
-        const { data, error } = await appState.supabaseClient.rpc('claim_initial_owner', {
-            p_org_slug: 'brooklyn-qs-121',
-            p_token: token
-        });
-
-        if (error) throw error;
-
-        // Reload workspace data to get updated role from backend
-        await loadWorkspaceData();
-        updateUserInfo();
-        updateNavigationByRole();
-
-        showAlert('Conta ativada com sucesso!', 'success');
-        setTimeout(() => navigateTo('agenda'), 1500);
-    } catch (error) {
-        console.error('Activation error:', error);
-        showMessage('Erro ao ativar: ' + error.message, 'error');
-    }
-}
+// BROOKLYN_OWNER_ACCESS_CLEANUP_V8
+// Fluxo legado de ativação removido.
+// O proprietário já possui membership OWNER persistente no banco.
 
 async function handleSignup() {
     try {
