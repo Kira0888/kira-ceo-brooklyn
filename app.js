@@ -1,3 +1,4 @@
+// KIRA_CLOUDFLARE_AUTH_V24_10
 // KIRA_DEMO_MANAGEMENT_V24_9
 function getInternalApiUrl(mode = null) {
     const url = new URL(INTERNAL_ENDPOINT);
@@ -21,7 +22,7 @@ const SUPABASE_ANON_KEY_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-config
 const BOOKING_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-booking`;
 const INTERNAL_ENDPOINT = `${SUPABASE_URL}/functions/v1/brooklyn-internal`;
 const MAPS_URL = 'https://maps.app.goo.gl/x4sgYuXCZhRhZHGK7?g_st=ac';
-const APP_BASE_URL = 'https://kira0888.github.io/kira-ceo-brooklyn/';
+const APP_BASE_URL = 'https://kira-ceo-brooklyn.pages.dev/';
 
 const INITIAL_AUTH_HASH = window.location.hash;
 const INITIAL_PASSWORD_RECOVERY =
