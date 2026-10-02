@@ -58,6 +58,17 @@ let appState = {
 // Make appState accessible globally
 window.appState = appState;
 
+// KIRA_PUBLIC_BOOKING_SAFETY_V22_1
+const publicBookingMutationState = {
+    pending: false,
+    idempotencyKey: null,
+    payloadSignature: null
+};
+
+function isExplicitBookingDemo() {
+    return new URLSearchParams(window.location.search).get('demo') === '1';
+}
+
 // ============================================================
 // Initialization
 // ============================================================
@@ -721,46 +732,90 @@ async function renderBookingPage() {
     content.innerHTML = `
         <div class="content-inner">
             <div id="booking-container">
-                <div style="text-align: center; padding: 2rem;">
-                    <div class="loading" style="display: inline-block;"></div> Carregando...
+                <div style="text-align:center;padding:2rem;">
+                    <div class="loading" style="display:inline-block;"></div>
+                    Carregando...
                 </div>
             </div>
         </div>
     `;
 
     try {
-        // Check for existing booking first
+        const explicitDemo = isExplicitBookingDemo();
         const lastBooking = localStorage.getItem('last_appointment');
+
         if (lastBooking) {
-            const booking = JSON.parse(lastBooking);
-            await renderBookingManagement(booking);
+            try {
+                const booking = JSON.parse(lastBooking);
+
+                const canManageStoredBooking =
+                    booking?.tenant === 'live' ||
+                    (explicitDemo && booking?.tenant === 'demo');
+
+                if (canManageStoredBooking) {
+                    await renderBookingManagement(booking);
+                    return;
+                }
+            } catch (error) {
+                console.warn('Stored booking ignored:', error);
+            }
+        }
+
+        await checkBookingMode();
+
+        const container = content.querySelector('#booking-container');
+
+        if (appState.bookingState.mode === 'unavailable') {
+            container.innerHTML = `
+                <section class="booking-unavailable-card">
+                    <span>AGENDAMENTO ONLINE</span>
+
+                    <h2>
+                        INDISPONÍVEL<br>
+                        <em>NO MOMENTO.</em>
+                    </h2>
+
+                    <p>
+                        O canal público ainda não foi liberado pela unidade.
+                        Nenhuma reserva de demonstração será criada para clientes reais.
+                    </p>
+
+                    <a href="#home" class="editorial-cta">
+                        <span>VOLTAR AO INÍCIO</span>
+                        <b>↗</b>
+                    </a>
+                </section>
+            `;
             return;
         }
 
-        // Otherwise show booking form
-        await checkBookingMode();
-        
         const bookingHTML = getBookingHTML();
-        let finalHTML = bookingHTML;
-        
-        if (appState.bookingState.mode === 'demo') {
-            finalHTML = `
-                <div class="demo-banner">
-                    AMBIENTE DE APRESENTAÇÃO — nomes, preços e horários ilustrativos até validação final da unidade
-                </div>
-                ${bookingHTML}
-            `;
-        }
-        
-        content.querySelector('#booking-container').innerHTML = finalHTML;
+
+        container.innerHTML =
+            appState.bookingState.mode === 'demo'
+                ? `
+                    <div class="demo-banner">
+                        MODO APRESENTAÇÃO — reservas e dados deste ambiente
+                        não pertencem à operação real
+                    </div>
+                    ${bookingHTML}
+                `
+                : bookingHTML;
 
         await loadBookingCatalog();
         setupBookingListeners();
     } catch (error) {
         console.error('Booking page error:', error);
-        content.querySelector('#booking-container').innerHTML = `
-            <div class="alert alert-error">Erro ao carregar agendamento</div>
-        `;
+
+        const container = content.querySelector('#booking-container');
+
+        if (container) {
+            container.innerHTML = `
+                <div class="alert alert-error">
+                    Erro ao carregar agendamento
+                </div>
+            `;
+        }
     }
 }
 
@@ -976,21 +1031,39 @@ async function submitReschedule(appointmentId, token, tenant) {
 }
 
 async function checkBookingMode() {
-    try {
-        const response = await fetch(`${BOOKING_ENDPOINT}?mode=catalog&tenant=live`);
-        if (!response.ok) throw new Error('Live mode unavailable');
-        
-        const data = await response.json();
-        if (data.booking_enabled === true && data.services?.length > 0 && data.professionals?.length > 0) {
-            appState.bookingState.mode = 'live';
-            appState.bookingState.tenant = 'live';
-        } else {
-            appState.bookingState.mode = 'demo';
-            appState.bookingState.tenant = 'demo';
-        }
-    } catch (error) {
+    if (isExplicitBookingDemo()) {
         appState.bookingState.mode = 'demo';
         appState.bookingState.tenant = 'demo';
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${BOOKING_ENDPOINT}?mode=catalog&tenant=live`
+        );
+
+        if (!response.ok) {
+            throw new Error('Live mode unavailable');
+        }
+
+        const data = await response.json();
+
+        if (
+            data.booking_enabled === true &&
+            data.services?.length > 0 &&
+            data.professionals?.length > 0
+        ) {
+            appState.bookingState.mode = 'live';
+            appState.bookingState.tenant = 'live';
+            return;
+        }
+
+        appState.bookingState.mode = 'unavailable';
+        appState.bookingState.tenant = 'live';
+    } catch (error) {
+        console.error('Booking mode check error:', error);
+        appState.bookingState.mode = 'unavailable';
+        appState.bookingState.tenant = 'live';
     }
 }
 
@@ -1180,49 +1253,134 @@ async function loadAvailableTimes() {
 }
 
 async function submitBooking() {
+    if (publicBookingMutationState.pending) return;
+
+    const confirmButton = document.getElementById('confirm-booking');
+
     try {
-        const service = document.getElementById('service-select').value;
-        const professional = document.getElementById('professional-select').value;
-        const startsAt = document.getElementById('time-select').value;
-        const name = document.getElementById('customer-name').value.trim();
-        const phone = document.getElementById('customer-phone').value.trim();
+        const service =
+            document.getElementById('service-select').value;
+
+        const professional =
+            document.getElementById('professional-select').value;
+
+        const startsAt =
+            document.getElementById('time-select').value;
+
+        const name =
+            document.getElementById('customer-name').value.trim();
+
+        const phone =
+            document.getElementById('customer-phone').value.trim();
 
         if (!service || !professional || !startsAt || !name || !phone) {
             showAlert('Preencha todos os campos', 'error');
             return;
         }
 
-        const idempotencyKey = crypto.randomUUID();
-
-        const response = await fetch(`${BOOKING_ENDPOINT}?tenant=${appState.bookingState.tenant}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                service_id: service,
-                professional_id: professional,
-                starts_at: startsAt,
-                customer_name: name,
-                customer_phone: phone,
-                idempotency_key: idempotencyKey
-            })
+        const payloadSignature = JSON.stringify({
+            service,
+            professional,
+            startsAt,
+            name,
+            phone,
+            tenant: appState.bookingState.tenant
         });
 
-        if (!response.ok) throw new Error('Booking failed');
-        
-        const result = await response.json();
-        
-        // Store locally using result.appointment
-        localStorage.setItem('last_appointment', JSON.stringify({
-            appointment_id: result.appointment,
-            management_token: result.management_token,
-            tenant: appState.bookingState.tenant
-        }));
+        if (
+            !publicBookingMutationState.idempotencyKey ||
+            publicBookingMutationState.payloadSignature !== payloadSignature
+        ) {
+            publicBookingMutationState.idempotencyKey = crypto.randomUUID();
+            publicBookingMutationState.payloadSignature = payloadSignature;
+        }
 
-        showAlert('Agendamento confirmado com sucesso.', 'success');
-        setTimeout(() => navigateTo('home'), 2000);
+        publicBookingMutationState.pending = true;
+
+        if (confirmButton) {
+            confirmButton.disabled = true;
+            confirmButton.setAttribute('aria-busy', 'true');
+        }
+
+        const response = await fetch(
+            `${BOOKING_ENDPOINT}?tenant=${appState.bookingState.tenant}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    service_id: service,
+                    professional_id: professional,
+                    starts_at: startsAt,
+                    customer_name: name,
+                    customer_phone: phone,
+                    idempotency_key:
+                        publicBookingMutationState.idempotencyKey
+                })
+            }
+        );
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            const code = result?.error || 'BOOKING_FAILED';
+
+            if (code === 'TIME_CONFLICT') {
+                throw new Error(
+                    'Esse horário acabou de ficar indisponível. Escolha outro horário.'
+                );
+            }
+
+            if (code === 'LIVE_BOOKING_DISABLED') {
+                throw new Error(
+                    'O agendamento online foi desativado pela unidade.'
+                );
+            }
+
+            if (code === 'RATE_LIMITED') {
+                throw new Error(
+                    'Muitas tentativas em sequência. Aguarde um momento e tente novamente.'
+                );
+            }
+
+            throw new Error('Não foi possível confirmar o agendamento.');
+        }
+
+        localStorage.setItem(
+            'last_appointment',
+            JSON.stringify({
+                appointment_id: result.appointment,
+                management_token: result.management_token,
+                tenant: appState.bookingState.tenant
+            })
+        );
+
+        publicBookingMutationState.idempotencyKey = null;
+        publicBookingMutationState.payloadSignature = null;
+
+        showAlert(
+            appState.bookingState.mode === 'demo'
+                ? 'Reserva de demonstração criada com sucesso.'
+                : 'Agendamento confirmado com sucesso.',
+            'success'
+        );
+
+        setTimeout(() => navigateTo('home'), 1600);
     } catch (error) {
         console.error('Booking submit error:', error);
-        showAlert('Erro ao confirmar agendamento', 'error');
+
+        showAlert(
+            error?.message || 'Erro ao confirmar agendamento',
+            'error'
+        );
+    } finally {
+        publicBookingMutationState.pending = false;
+
+        if (confirmButton && document.body.contains(confirmButton)) {
+            confirmButton.disabled = false;
+            confirmButton.removeAttribute('aria-busy');
+        }
     }
 }
 
@@ -1239,7 +1397,7 @@ function renderLocationPage() {
 
                     <p>
                         Barbearia Brooklyn — Unidade QS 121, Samambaia, Brasília — DF.
-                        Abra a rota direto no Google Maps e use este bloco como apresentação comercial.
+                        Abra a rota direto no Google Maps e chegue à unidade com facilidade.
                     </p>
 
                     <div class="location-v6-meta">

@@ -4978,3 +4978,48 @@ body.public-shell .content-inner {
     font-size: .68rem;
     line-height: 1.5;
 }
+
+
+/* KIRA PUBLIC BOOKING SAFETY V22.1 */
+
+.booking-unavailable-card {
+    max-width: 760px;
+    margin: 3rem auto;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 1px solid #2b2925;
+    background: #11110f;
+}
+
+.booking-unavailable-card > span {
+    color: #d1aa5b;
+    font-size: .58rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+}
+
+.booking-unavailable-card h2 {
+    margin: .8rem 0 1rem;
+    color: #ece4d7;
+    font-family: "Roboto Slab", Georgia, serif;
+    font-size: clamp(2.5rem, 8vw, 5.5rem);
+    line-height: .86;
+    letter-spacing: -.055em;
+}
+
+.booking-unavailable-card h2 em {
+    color: #d1aa5b;
+    font-style: italic;
+}
+
+.booking-unavailable-card p {
+    max-width: 52ch;
+    margin: 0 0 1.5rem;
+    color: #8a8378;
+    line-height: 1.65;
+}
+
+#confirm-booking[aria-busy="true"] {
+    pointer-events: none;
+    opacity: .62;
+    cursor: wait;
+}
