@@ -4435,3 +4435,44 @@ body.public-shell .content-inner {
     background: rgba(130, 45, 45, .10);
     outline: none;
 }
+
+
+/* KIRA PROFESSIONAL ARCHIVE V18.1 */
+
+.config-archive {
+    margin-top: 1.25rem;
+    border-top: 1px solid #2b2925;
+}
+
+.config-archive > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 0;
+    color: #8c857a;
+    cursor: pointer;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    list-style: none;
+}
+
+.config-archive > summary::-webkit-details-marker {
+    display: none;
+}
+
+.config-archive > summary span {
+    min-width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #302e29;
+    color: #d1aa5b;
+    font-size: .62rem;
+}
+
+.config-archive[open] > summary {
+    color: #d3cbbc;
+}

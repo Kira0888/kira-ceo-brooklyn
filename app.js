@@ -3758,6 +3758,7 @@ async function submitAddService() {
     return submitServiceForm();
 }
 
+// KIRA_PROFESSIONAL_ARCHIVE_V18_1
 async function showProfessionalsConfig() {
     const configContent = document.getElementById('config-content');
     const orgId = appState.workspaceData?.organization?.id;
@@ -3780,6 +3781,9 @@ async function showProfessionalsConfig() {
 
         if (error) throw error;
 
+        const activeProfessionals = (professionals || []).filter(p => p.active);
+        const archivedProfessionals = (professionals || []).filter(p => !p.active);
+
         configContent.innerHTML = `
             <div class="card config-list-card">
                 <div class="config-list-head">
@@ -3787,20 +3791,17 @@ async function showProfessionalsConfig() {
                         <span>EQUIPE</span>
                         <div class="card-title">Profissionais</div>
                         <p>
-                            Cadastre a equipe e desative perfis sem apagar
-                            o histórico de atendimentos.
+                            Gerencie nomes, status e perfis da equipe.
+                            Profissionais excluídos saem da operação ativa sem apagar o histórico.
                         </p>
                     </div>
 
-                    <button
-                        class="button button-primary"
-                        onclick="showProfessionalForm()"
-                    >
+                    <button class="button button-primary" onclick="showProfessionalForm()">
                         Adicionar profissional
                     </button>
                 </div>
 
-                ${(professionals || []).length ? `
+                ${activeProfessionals.length ? `
                     <div class="table-wrap">
                         <table>
                             <thead>
@@ -3812,14 +3813,10 @@ async function showProfessionalsConfig() {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${(professionals || []).map(p => `
+                                ${activeProfessionals.map(p => `
                                     <tr>
                                         <td>${sanitizeText(p.display_name)}</td>
-                                        <td>
-                                            <span class="config-status ${p.active ? 'is-active' : 'is-inactive'}">
-                                                ${p.active ? 'ATIVO' : 'INATIVO'}
-                                            </span>
-                                        </td>
+                                        <td><span class="config-status is-active">ATIVO</span></td>
                                         <td>
                                             ${p.auth_user_id
                                                 ? '<span class="config-access-linked">VINCULADO</span>'
@@ -3852,15 +3849,60 @@ async function showProfessionalsConfig() {
                     </div>
                 ` : `
                     <div class="ops-empty">
-                        <strong>Nenhum profissional cadastrado</strong>
-                        <span>Adicione o primeiro integrante da equipe.</span>
+                        <strong>Nenhum profissional ativo</strong>
+                        <span>Adicione um profissional ou restaure um perfil arquivado.</span>
                     </div>
                 `}
+
+                ${appState.userRole === 'OWNER' && archivedProfessionals.length ? `
+                    <details class="config-archive">
+                        <summary>
+                            Excluídos / inativos
+                            <span>${archivedProfessionals.length}</span>
+                        </summary>
+
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Status</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${archivedProfessionals.map(p => `
+                                        <tr>
+                                            <td>${sanitizeText(p.display_name)}</td>
+                                            <td><span class="config-status is-inactive">INATIVO</span></td>
+                                            <td>
+                                                <div class="config-row-actions">
+                                                    <button
+                                                        class="button button-secondary compact-action"
+                                                        onclick="restoreProfessionalConfig('${p.id}')"
+                                                    >
+                                                        Restaurar
+                                                    </button>
+
+                                                    <button
+                                                        class="button button-secondary compact-action"
+                                                        onclick="showProfessionalForm('${p.id}')"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                ` : ''}
             </div>
         `;
     } catch (error) {
         console.error('Load professionals error:', error);
-
         configContent.innerHTML = `
             <div class="alert alert-error">
                 Erro ao carregar profissionais: ${sanitizeText(error.message)}
@@ -4092,18 +4134,18 @@ async function deleteProfessionalConfig(professionalId) {
     }
 
     const requestKey = `delete-professional:${professionalId}`;
-
     if (configurationMutationRequests.has(requestKey)) return;
 
     try {
         const orgId = appState.workspaceData?.organization?.id;
 
-        const { data: professional, error: loadError } = await appState.supabaseClient
-            .from('professionals')
-            .select('id,display_name,active,auth_user_id')
-            .eq('organization_id', orgId)
-            .eq('id', professionalId)
-            .maybeSingle();
+        const { data: professional, error: loadError } =
+            await appState.supabaseClient
+                .from('professionals')
+                .select('id,display_name,active,auth_user_id')
+                .eq('organization_id', orgId)
+                .eq('id', professionalId)
+                .maybeSingle();
 
         if (loadError) throw loadError;
 
@@ -4112,18 +4154,8 @@ async function deleteProfessionalConfig(professionalId) {
             return;
         }
 
-        if (professional.auth_user_id) {
-            showAlert(
-                'Este profissional possui login vinculado. Para preservar o acesso e a auditoria, desative o perfil em vez de excluí-lo.',
-                'error'
-            );
-            return;
-        }
-
         const confirmed = window.confirm(
-            `Excluir "${professional.display_name}" permanentemente?\n\n` +
-            'Se houver agenda, comissão, pagamento ou histórico relacionado, ' +
-            'o banco bloqueará a exclusão. Nesse caso, desative o profissional.'
+            `Tem certeza que deseja excluir "${professional.display_name}"?`
         );
 
         if (!confirmed) return;
@@ -4132,21 +4164,11 @@ async function deleteProfessionalConfig(professionalId) {
 
         const { error } = await appState.supabaseClient
             .from('professionals')
-            .delete()
+            .update({ active: false })
             .eq('organization_id', orgId)
             .eq('id', professionalId);
 
-        if (error) {
-            if (error.code === '23503') {
-                showAlert(
-                    'Este profissional possui histórico operacional ou financeiro e não pode ser excluído. Edite-o e marque como inativo.',
-                    'error'
-                );
-                return;
-            }
-
-            throw error;
-        }
+        if (error) throw error;
 
         await refreshConfigurationWorkspace();
         showAlert('Profissional excluído com sucesso', 'success');
@@ -4154,6 +4176,38 @@ async function deleteProfessionalConfig(professionalId) {
     } catch (error) {
         console.error('Delete professional error:', error);
         showAlert('Erro ao excluir profissional: ' + error.message, 'error');
+    } finally {
+        configurationMutationRequests.delete(requestKey);
+    }
+}
+
+async function restoreProfessionalConfig(professionalId) {
+    if (appState.userRole !== 'OWNER') {
+        showAlert('Somente o proprietário pode restaurar profissionais', 'error');
+        return;
+    }
+
+    const requestKey = `restore-professional:${professionalId}`;
+    if (configurationMutationRequests.has(requestKey)) return;
+
+    try {
+        const orgId = appState.workspaceData?.organization?.id;
+        configurationMutationRequests.add(requestKey);
+
+        const { error } = await appState.supabaseClient
+            .from('professionals')
+            .update({ active: true })
+            .eq('organization_id', orgId)
+            .eq('id', professionalId);
+
+        if (error) throw error;
+
+        await refreshConfigurationWorkspace();
+        showAlert('Profissional restaurado com sucesso', 'success');
+        await showProfessionalsConfig();
+    } catch (error) {
+        console.error('Restore professional error:', error);
+        showAlert('Erro ao restaurar profissional: ' + error.message, 'error');
     } finally {
         configurationMutationRequests.delete(requestKey);
     }
