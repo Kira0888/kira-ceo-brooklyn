@@ -1743,14 +1743,14 @@ async function renderSchedulePage() {
             if (appt.appointment_id && ['BOOKED', 'CONFIRMED'].includes(appt.state)) {
                 actions = `
                     <button class="button button-primary compact-action"
-                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE')">Iniciar</button>
+                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE', this)">Iniciar</button>
                     <button class="button button-secondary compact-action"
-                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW')">Faltou</button>
+                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW', this)">Faltou</button>
                 `;
             } else if (appt.appointment_id && appt.state === 'IN_SERVICE') {
                 actions = `
                     <button class="button button-primary compact-action"
-                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'COMPLETED')">Concluir</button>
+                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'COMPLETED', this)">Concluir</button>
                 `;
             }
 
@@ -1815,9 +1815,53 @@ async function renderSchedulePage() {
     }
 }
 
-async function updateAppointmentStatus(appointmentId, newState) {
-    try {
-        const response = await fetch(INTERNAL_ENDPOINT, {
+// KIRA_AGENDA_STABILITY_V14
+const appointmentStatusRequests = new Set();
+
+async function updateAppointmentStatus(appointmentId, newState, triggerButton = null) {
+    if (!appointmentId || !newState) return;
+
+    if (appointmentStatusRequests.has(appointmentId)) {
+        return;
+    }
+
+    if (!appState.currentSession?.access_token) {
+        showAlert('Sua sessão não está ativa. Entre novamente.', 'error');
+        navigateTo('acesso-interno');
+        return;
+    }
+
+    const ticket = triggerButton?.closest('.agenda-ticket') || null;
+    const actionButtons = ticket
+        ? Array.from(ticket.querySelectorAll('.agenda-actions .button'))
+        : [];
+
+    const stateLabels = {
+        IN_SERVICE: 'Atendimento iniciado',
+        NO_SHOW: 'Falta registrada',
+        COMPLETED: 'Atendimento concluído'
+    };
+
+    appointmentStatusRequests.add(appointmentId);
+
+    if (ticket) {
+        ticket.classList.add('is-updating');
+        ticket.setAttribute('aria-busy', 'true');
+    }
+
+    actionButtons.forEach((button) => {
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.textContent.trim();
+        }
+        button.disabled = true;
+    });
+
+    if (triggerButton) {
+        triggerButton.textContent = 'Atualizando...';
+    }
+
+    const sendRequest = async () => {
+        return fetch(INTERNAL_ENDPOINT, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${appState.currentSession.access_token}`,
@@ -1830,17 +1874,87 @@ async function updateAppointmentStatus(appointmentId, newState) {
                 state: newState
             })
         });
+    };
 
-        if (!response.ok) throw new Error('Failed to update status');
-        
-        // Refresh workspace data and re-render
+    try {
+        let response = await sendRequest();
+
+        if (response.status === 401) {
+            const { data, error } = await appState.supabaseClient.auth.refreshSession();
+
+            if (!error && data?.session) {
+                appState.currentSession = data.session;
+                appState.currentUser = data.session.user;
+                response = await sendRequest();
+            }
+        }
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('Sua sessão expirou. Entre novamente.');
+            }
+
+            if (response.status === 403) {
+                throw new Error('Você não tem permissão para alterar este atendimento.');
+            }
+
+            const backendMessage =
+                payload?.detail ||
+                payload?.error ||
+                `Erro HTTP ${response.status}`;
+
+            throw new Error(backendMessage);
+        }
+
         appState.workspaceData = null;
-        await loadWorkspaceData();
-        showAlert('Status atualizado com sucesso', 'success');
-        renderSchedulePage();
+
+        const loaded = await loadWorkspaceData(false);
+        if (!loaded || !appState.workspaceData) {
+            throw new Error('Status salvo, mas não foi possível atualizar a agenda.');
+        }
+
+        showAlert(
+            stateLabels[newState] || 'Status atualizado com sucesso',
+            'success'
+        );
+
+        await renderSchedulePage();
     } catch (error) {
         console.error('Status update error:', error);
-        showAlert('Erro ao atualizar status', 'error');
+
+        const message =
+            error?.message ||
+            'Não foi possível atualizar o status do atendimento.';
+
+        showAlert(message, 'error');
+
+        if (/sessão expirou/i.test(message)) {
+            navigateTo('acesso-interno');
+        }
+    } finally {
+        appointmentStatusRequests.delete(appointmentId);
+
+        if (ticket && document.body.contains(ticket)) {
+            ticket.classList.remove('is-updating');
+            ticket.removeAttribute('aria-busy');
+        }
+
+        actionButtons.forEach((button) => {
+            if (!document.body.contains(button)) return;
+
+            button.disabled = false;
+
+            if (button.dataset.originalLabel) {
+                button.textContent = button.dataset.originalLabel;
+            }
+        });
     }
 }
 

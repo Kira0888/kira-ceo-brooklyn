@@ -4099,3 +4099,38 @@ body.public-shell .content-inner {
         display: none !important;
     }
 }
+
+
+/* KIRA AGENDA STABILITY V14 */
+
+.agenda-ticket {
+    transition:
+        opacity 180ms ease,
+        border-color 180ms ease,
+        background-color 180ms ease;
+}
+
+.agenda-ticket.is-updating {
+    opacity: .68;
+    border-color: rgba(209, 170, 91, .34);
+}
+
+.agenda-ticket.is-updating .agenda-ticket-main {
+    pointer-events: none;
+}
+
+.agenda-actions .compact-action:disabled {
+    cursor: wait;
+    opacity: .58;
+    transform: none !important;
+}
+
+.agenda-actions .compact-action:disabled:hover {
+    transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agenda-ticket {
+        transition: none !important;
+    }
+}
