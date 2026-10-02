@@ -375,7 +375,13 @@ function renderPage(page) {
 // Public Pages
 // ============================================================
 
+// BROOKLYN_PRO_UI_V4
 function renderHomePage() {
+    if (appState.currentUser && appState.userRole) {
+        renderOwnerDashboardPage();
+        return;
+    }
+
     const content = document.getElementById('content');
     updateTopbar('Início', 'Barbearia Brooklyn · QS 121');
 
@@ -442,18 +448,299 @@ function renderHomePage() {
                 </div>
             </section>
 
-            <section class="public-feature-rail" aria-label="Recursos">
-                <div><span>01</span><strong>AGENDA</strong><small>Horários e atendimento organizados.</small></div>
-                <div><span>02</span><strong>CAIXA</strong><small>Recebimentos e movimentos registrados.</small></div>
-                <div><span>03</span><strong>COMISSÕES</strong><small>Apuração vinculada aos atendimentos.</small></div>
-                <div><span>04</span><strong>RELATÓRIOS</strong><small>Visão operacional e financeira.</small></div>
+            <div class="brand-marquee" aria-hidden="true">
+                <div>
+                    <span>BROOKLYN</span><i>✦</i>
+                    <span>PRECISÃO</span><i>✦</i>
+                    <span>QS 121</span><i>✦</i>
+                    <span>AGENDA DIGITAL</span><i>✦</i>
+                    <span>BROOKLYN</span>
+                </div>
+            </div>
+
+            <section class="public-story-grid">
+                <article class="story-copy">
+                    <span class="story-kicker">EXPERIÊNCIA BROOKLYN / DIGITAL</span>
+                    <h2>DA RESERVA AO CAIXA,<br><em>SEM RUÍDO.</em></h2>
+                    <p>
+                        O cliente agenda em poucos passos. A equipe acompanha o atendimento,
+                        registra recebimentos e mantém a operação organizada no mesmo sistema.
+                    </p>
+
+                    <div class="story-lines">
+                        <div><b>01</b><span>Agendamento claro e responsivo</span></div>
+                        <div><b>02</b><span>Operação diária centralizada</span></div>
+                        <div><b>03</b><span>Financeiro e comissões vinculados ao atendimento</span></div>
+                    </div>
+                </article>
+
+                <aside class="story-poster">
+                    <div class="poster-top">
+                        <span>UNIDADE</span>
+                        <strong>121</strong>
+                    </div>
+                    <div class="poster-bottom">
+                        <span>SAMAMBAIA</span>
+                        <p>Uma interface criada para combinar com a presença visual da Brooklyn.</p>
+                    </div>
+                </aside>
             </section>
+
+            <section class="public-process">
+                <div class="process-head">
+                    <span>FLUXO</span>
+                    <h2>TRÊS PASSOS.<br>SEM COMPLICAÇÃO.</h2>
+                </div>
+
+                <div class="process-grid">
+                    <article>
+                        <b>01</b>
+                        <h3>ESCOLHA</h3>
+                        <p>Serviço e profissional.</p>
+                    </article>
+                    <article>
+                        <b>02</b>
+                        <h3>RESERVE</h3>
+                        <p>Data e horário disponível.</p>
+                    </article>
+                    <article>
+                        <b>03</b>
+                        <h3>CHEGUE</h3>
+                        <p>A equipe acompanha tudo pela agenda interna.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="public-final-cta">
+                <div>
+                    <span>BARBEARIA BROOKLYN · QS 121</span>
+                    <h2>SEU PRÓXIMO<br>CORTE COMEÇA AQUI.</h2>
+                </div>
+                <a href="#agendamento" class="editorial-cta editorial-cta-large">
+                    <span>MARCAR HORÁRIO</span><b>↗</b>
+                </a>
+            </section>
+
+            <footer class="public-footer">
+                <span>BARBEARIA BROOKLYN · SAMAMBAIA</span>
+                <span>GESTÃO DIGITAL KIRA-CEO</span>
+            </footer>
 
             <div id="booking-status" style="display:none;"></div>
         </div>
     `;
 
     checkExistingBooking();
+}
+
+async function renderOwnerDashboardPage() {
+    const content = document.getElementById('content');
+    updateTopbar('Visão geral', 'Operação Brooklyn · QS 121');
+
+    content.innerHTML = `
+        <div class="content-inner">
+            <div class="ops-loading"><div class="loading"></div><span>Carregando operação...</span></div>
+        </div>
+    `;
+
+    try {
+        if (!appState.workspaceData) {
+            await loadWorkspaceData();
+        }
+
+        const ws = appState.workspaceData || {};
+        const agenda = ws.agenda || [];
+        const services = ws.services || [];
+        const professionals = ws.professionals || [];
+        const financial = ws.financial || {};
+        const orders = financial.orders || [];
+        const cash = financial.cash || [];
+        const commission = financial.commission || [];
+        const receipts = (financial.receipts || []).filter(r => r.confirmed !== false);
+
+        const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+        const todayAgenda = agenda.filter(item =>
+            new Date(item.starts_at).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) === todayKey
+        );
+
+        const stateLabels = {
+            BOOKED: 'Agendado',
+            CONFIRMED: 'Confirmado',
+            IN_SERVICE: 'Em atendimento',
+            COMPLETED: 'Concluído',
+            NO_SHOW: 'Faltou',
+            CANCELLED: 'Cancelado',
+            BLOCKED: 'Bloqueio'
+        };
+
+        const receivedCents = orders.reduce((sum, order) => sum + Number(order.paid_cents || 0), 0);
+        const dueCents = orders.reduce((sum, order) => sum + Number(order.balance_cents || 0), 0);
+        const commissionCents = commission.reduce((sum, item) => sum + Number(item.payable_cents || 0), 0);
+        const openCash = cash.find(session => session.status === 'OPEN') || null;
+
+        const chartDays = [];
+        for (let offset = 6; offset >= 0; offset--) {
+            const d = new Date(Date.now() - offset * 86400000);
+            const key = d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+            const label = d.toLocaleDateString('pt-BR', {
+                weekday: 'short',
+                day: '2-digit',
+                timeZone: 'America/Sao_Paulo'
+            }).replace('.', '');
+
+            const total = receipts
+                .filter(receipt =>
+                    new Date(receipt.created_at).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) === key
+                )
+                .reduce((sum, receipt) => sum + Number(receipt.amount_cents || 0), 0);
+
+            chartDays.push({ key, label, total });
+        }
+
+        const chartMax = Math.max(...chartDays.map(day => day.total), 1);
+
+        const agendaCards = todayAgenda.length
+            ? todayAgenda.map(item => {
+                const time = new Date(item.starts_at).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'America/Sao_Paulo'
+                });
+
+                return `
+                    <div class="ops-appointment">
+                        <div class="ops-time">${time}</div>
+                        <div class="ops-appt-main">
+                            <strong>${sanitizeText(item.customer_name || 'Bloqueio')}</strong>
+                            <span>${sanitizeText(item.service?.name || 'Agenda')} · ${sanitizeText(item.professional?.display_name || '—')}</span>
+                        </div>
+                        <span class="ops-status ops-status-${sanitizeText((item.state || 'BOOKED').toLowerCase())}">
+                            ${sanitizeText(stateLabels[item.state] || item.state || 'Agendado')}
+                        </span>
+                    </div>
+                `;
+            }).join('')
+            : `
+                <div class="ops-empty">
+                    <strong>Agenda livre hoje</strong>
+                    <span>Nenhum atendimento carregado para esta data.</span>
+                </div>
+            `;
+
+        content.innerHTML = `
+            <div class="content-inner ops-dashboard">
+                <section class="ops-hero">
+                    <div>
+                        <span class="ops-eyebrow">OPERAÇÃO / QS 121</span>
+                        <h1>BROOKLYN<br><em>CONTROL.</em></h1>
+                        <p>Visão diária de agenda, caixa, recebimentos e equipe.</p>
+                    </div>
+
+                    <div class="ops-hero-actions">
+                        <a href="#agenda" class="ops-action-primary">ABRIR AGENDA <b>↗</b></a>
+                        <a href="#financeiro" class="ops-action-link">FINANCEIRO</a>
+                    </div>
+                </section>
+
+                <section class="ops-kpis">
+                    <article>
+                        <span>HOJE</span>
+                        <strong>${todayAgenda.length}</strong>
+                        <small>atendimentos na agenda</small>
+                    </article>
+                    <article>
+                        <span>RECEBIDO</span>
+                        <strong>R$ ${(receivedCents / 100).toFixed(2)}</strong>
+                        <small>líquido nas comandas</small>
+                    </article>
+                    <article>
+                        <span>A RECEBER</span>
+                        <strong>R$ ${(dueCents / 100).toFixed(2)}</strong>
+                        <small>saldo em aberto</small>
+                    </article>
+                    <article>
+                        <span>COMISSÕES</span>
+                        <strong>R$ ${(commissionCents / 100).toFixed(2)}</strong>
+                        <small>saldo a repassar</small>
+                    </article>
+                </section>
+
+                <section class="ops-main-grid">
+                    <article class="ops-panel ops-panel-agenda">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>AGENDA / HOJE</span>
+                                <h2>Movimento do dia</h2>
+                            </div>
+                            <a href="#agenda">VER AGENDA ↗</a>
+                        </div>
+                        <div class="ops-appointment-list">${agendaCards}</div>
+                    </article>
+
+                    <article class="ops-panel ops-panel-chart">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>RECEBIMENTOS</span>
+                                <h2>Últimos 7 dias</h2>
+                            </div>
+                            <strong>R$ ${(receivedCents / 100).toFixed(2)}</strong>
+                        </div>
+
+                        <div class="ops-chart">
+                            ${chartDays.map(day => `
+                                <div class="ops-bar-column">
+                                    <div class="ops-bar-track">
+                                        <div class="ops-bar" style="height:${Math.max((day.total / chartMax) * 100, day.total > 0 ? 8 : 2)}%"></div>
+                                    </div>
+                                    <span>${sanitizeText(day.label)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </article>
+                </section>
+
+                <section class="ops-secondary-grid">
+                    <article class="ops-panel">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>ESTRUTURA</span>
+                                <h2>Catálogo ativo</h2>
+                            </div>
+                            <a href="#configuracoes">CONFIGURAR ↗</a>
+                        </div>
+                        <div class="ops-catalog-stats">
+                            <div><strong>${services.length}</strong><span>serviços</span></div>
+                            <div><strong>${professionals.length}</strong><span>profissionais</span></div>
+                            <div><strong>${Number(ws.customers_count || 0)}</strong><span>clientes</span></div>
+                        </div>
+                    </article>
+
+                    <article class="ops-panel ops-cash-card ${openCash ? 'is-open' : 'is-closed'}">
+                        <div class="ops-panel-head">
+                            <div>
+                                <span>CAIXA</span>
+                                <h2>${openCash ? 'Sessão aberta' : 'Sessão fechada'}</h2>
+                            </div>
+                            <span class="ops-cash-dot"></span>
+                        </div>
+                        <p>
+                            ${openCash
+                                ? `Esperado agora: R$ ${(Number(openCash.expected_cash_now_cents || 0) / 100).toFixed(2)}`
+                                : 'Abra o caixa antes de registrar movimentações em dinheiro.'}
+                        </p>
+                        <a href="#financeiro" class="ops-action-link">IR PARA O CAIXA ↗</a>
+                    </article>
+                </section>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Owner dashboard error:', error);
+        content.innerHTML = `
+            <div class="content-inner">
+                <div class="alert alert-error">Erro ao carregar visão geral: ${sanitizeText(error.message || 'erro desconhecido')}</div>
+            </div>
+        `;
+    }
 }
 
 function checkExistingBooking() {
@@ -994,20 +1281,38 @@ async function submitBooking() {
 
 function renderLocationPage() {
     const content = document.getElementById('content');
-    updateTopbar('Localização', 'Encontre-nos');
+    updateTopbar('Localização', 'Barbearia Brooklyn · QS 121');
 
     content.innerHTML = `
-        <div class="content-inner">
-            <div class="card">
-                <div class="card-title">Barbearia Brooklyn</div>
-                <p><strong>Endereço:</strong><br>
-                   QS 121 — Samambaia<br>
-                   Brasília — DF</p>
-                
-                <a href="${MAPS_URL}" target="_blank" class="button button-primary" style="margin-top: 1.5rem;">
-                    Abrir no Google Maps
-                </a>
-            </div>
+        <div class="content-inner location-pro">
+            <section class="location-layout">
+                <div class="location-copy">
+                    <span class="location-kicker">BROOKLYN / 121 / SAMAMBAIA</span>
+                    <h1>ENCONTRE<br><em>A GENTE.</em></h1>
+                    <p>
+                        Unidade QS 121, Samambaia, Brasília — DF.
+                        Abra a rota no Google Maps para chegar com facilidade.
+                    </p>
+
+                    <a href="${MAPS_URL}" target="_blank" rel="noopener noreferrer" class="editorial-cta">
+                        <span>ABRIR NO GOOGLE MAPS</span><b>↗</b>
+                    </a>
+                </div>
+
+                <div class="location-map-art" aria-hidden="true">
+                    <div class="map-grid"></div>
+                    <div class="map-route route-a"></div>
+                    <div class="map-route route-b"></div>
+                    <div class="map-pin">
+                        <span></span>
+                    </div>
+                    <div class="map-number">121</div>
+                    <div class="map-caption">
+                        <span>QS 121</span>
+                        <strong>SAMAMBAIA</strong>
+                    </div>
+                </div>
+            </section>
         </div>
     `;
 }
@@ -1406,13 +1711,11 @@ async function handleLogout() {
 
 async function renderSchedulePage() {
     const content = document.getElementById('content');
-    updateTopbar('Agenda', 'Visão operacional');
+    updateTopbar('Agenda', 'Operação diária');
 
     content.innerHTML = `
         <div class="content-inner">
-            <div id="schedule-loading" style="text-align:center;padding:2rem;">
-                <div class="loading" style="display:inline-block;"></div> Carregando agenda...
-            </div>
+            <div class="ops-loading"><div class="loading"></div><span>Carregando agenda...</span></div>
         </div>
     `;
 
@@ -1424,26 +1727,28 @@ async function renderSchedulePage() {
         const agenda = [...(appState.workspaceData?.agenda || [])]
             .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
 
-        if (agenda.length === 0) {
-            content.innerHTML = `
-                <div class="content-inner">
-                    <div class="card">
-                        <div class="card-title">Agenda operacional</div>
-                        <p class="text-muted">Nenhum atendimento no período carregado.</p>
-                    </div>
-                </div>
-            `;
-            return;
-        }
+        const states = {
+            BOOKED: 'Agendado',
+            CONFIRMED: 'Confirmado',
+            IN_SERVICE: 'Em atendimento',
+            COMPLETED: 'Concluído',
+            NO_SHOW: 'Faltou',
+            CANCELLED: 'Cancelado',
+            BLOCKED: 'Bloqueio'
+        };
 
-        const rows = agenda.map(appt => {
-            const state = sanitizeText(appt.state || 'BOOKED');
+        const activeCount = agenda.filter(a => ['BOOKED', 'CONFIRMED', 'IN_SERVICE'].includes(a.state)).length;
+        const completedCount = agenda.filter(a => a.state === 'COMPLETED').length;
+        const noShowCount = agenda.filter(a => a.state === 'NO_SHOW').length;
+
+        const items = agenda.length ? agenda.map(appt => {
             const start = new Date(appt.starts_at);
             const date = start.toLocaleDateString('pt-BR', {
+                weekday: 'short',
                 day: '2-digit',
                 month: '2-digit',
                 timeZone: 'America/Sao_Paulo'
-            });
+            }).replace('.', '');
             const time = start.toLocaleTimeString('pt-BR', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -1453,9 +1758,9 @@ async function renderSchedulePage() {
             let actions = '';
             if (appt.appointment_id && ['BOOKED', 'CONFIRMED'].includes(appt.state)) {
                 actions = `
-                    <button class="button button-secondary compact-action"
+                    <button class="button button-primary compact-action"
                         onclick="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE')">Iniciar</button>
-                    <button class="button button-danger compact-action"
+                    <button class="button button-secondary compact-action"
                         onclick="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW')">Faltou</button>
                 `;
             } else if (appt.appointment_id && appt.state === 'IN_SERVICE') {
@@ -1466,53 +1771,61 @@ async function renderSchedulePage() {
             }
 
             return `
-                <tr>
-                    <td>${date}</td>
-                    <td>${time}</td>
-                    <td>${sanitizeText(appt.customer_name || '—')}</td>
-                    <td>${sanitizeText(appt.service?.name || '—')}</td>
-                    <td>${sanitizeText(appt.professional?.display_name || '—')}</td>
-                    <td><span class="badge badge-info">${state}</span></td>
-                    <td><div class="inline-actions">${actions}</div></td>
-                </tr>
+                <article class="agenda-ticket">
+                    <div class="agenda-time-block">
+                        <strong>${time}</strong>
+                        <span>${sanitizeText(date)}</span>
+                    </div>
+                    <div class="agenda-ticket-main">
+                        <div class="agenda-ticket-top">
+                            <div>
+                                <span class="agenda-label">CLIENTE</span>
+                                <h3>${sanitizeText(appt.customer_name || 'Bloqueio')}</h3>
+                            </div>
+                            <span class="ops-status ops-status-${sanitizeText((appt.state || 'BOOKED').toLowerCase())}">
+                                ${sanitizeText(states[appt.state] || appt.state || 'Agendado')}
+                            </span>
+                        </div>
+                        <div class="agenda-meta-grid">
+                            <div><span>Serviço</span><strong>${sanitizeText(appt.service?.name || '—')}</strong></div>
+                            <div><span>Profissional</span><strong>${sanitizeText(appt.professional?.display_name || '—')}</strong></div>
+                        </div>
+                        ${actions ? `<div class="agenda-actions">${actions}</div>` : ''}
+                    </div>
+                </article>
             `;
-        }).join('');
+        }).join('') : `
+            <div class="ops-empty">
+                <strong>Nenhum atendimento carregado</strong>
+                <span>A agenda aparecerá aqui quando houver reservas ou bloqueios.</span>
+            </div>
+        `;
 
         content.innerHTML = `
-            <div class="content-inner">
-                <div class="card">
-                    <div class="section-heading">
-                        <div>
-                            <div class="card-title">Agenda operacional</div>
-                            <p class="text-muted">Atendimentos carregados da unidade.</p>
-                        </div>
+            <div class="content-inner schedule-pro">
+                <section class="module-heading">
+                    <div>
+                        <span>AGENDA / OPERAÇÃO</span>
+                        <h1>ATENDIMENTOS</h1>
+                        <p>Controle de status e execução da rotina da unidade.</p>
                     </div>
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Hora</th>
-                                    <th>Cliente</th>
-                                    <th>Serviço</th>
-                                    <th>Profissional</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>
-                </div>
+                </section>
+
+                <section class="schedule-kpis">
+                    <div><span>ATIVOS</span><strong>${activeCount}</strong></div>
+                    <div><span>CONCLUÍDOS</span><strong>${completedCount}</strong></div>
+                    <div><span>FALTAS</span><strong>${noShowCount}</strong></div>
+                    <div><span>TOTAL</span><strong>${agenda.length}</strong></div>
+                </section>
+
+                <section class="agenda-ticket-list">${items}</section>
             </div>
         `;
     } catch (error) {
         console.error('Schedule page error:', error);
         content.innerHTML = `
             <div class="content-inner">
-                <div class="alert alert-error">
-                    Erro ao carregar agenda: ${sanitizeText(error.message || 'erro desconhecido')}
-                </div>
+                <div class="alert alert-error">Erro ao carregar agenda: ${sanitizeText(error.message || 'erro desconhecido')}</div>
             </div>
         `;
     }
@@ -2488,7 +2801,7 @@ async function renderReportsPage() {
 
 async function renderConfigurationPage() {
     const content = document.getElementById('content');
-    updateTopbar('Configurações', 'Gerenciamento da unidade');
+    updateTopbar('Configurações', 'Estrutura da unidade');
 
     if (appState.userRole === 'BARBER') {
         navigateTo('home');
@@ -2496,20 +2809,65 @@ async function renderConfigurationPage() {
     }
 
     content.innerHTML = `
-        <div class="content-inner">
-            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                <button class="button button-primary" onclick="showServicesConfig()">Serviços</button>
-                <button class="button button-primary" onclick="showProfessionalsConfig()">Profissionais</button>
-                <button class="button button-primary" onclick="showProfessionalServicesConfig()">Vincular serviços</button>
-                <button class="button button-primary" onclick="showProfessionalHoursConfig()">Expediente</button>
+        <div class="content-inner config-pro">
+            <section class="module-heading">
+                <div>
+                    <span>CONFIGURAÇÃO / BROOKLYN</span>
+                    <h1>ESTRUTURA DA UNIDADE</h1>
+                    <p>Serviços, equipe, expediente, comissão e regras de agendamento.</p>
+                </div>
+            </section>
+
+            <section class="config-module-grid">
+                <button onclick="showServicesConfig()">
+                    <b>01</b>
+                    <strong>SERVIÇOS</strong>
+                    <span>Preço, duração, buffer e disponibilidade.</span>
+                    <i>↗</i>
+                </button>
+
+                <button onclick="showProfessionalsConfig()">
+                    <b>02</b>
+                    <strong>PROFISSIONAIS</strong>
+                    <span>Equipe ativa e perfis de atendimento.</span>
+                    <i>↗</i>
+                </button>
+
+                <button onclick="showProfessionalServicesConfig()">
+                    <b>03</b>
+                    <strong>VÍNCULOS</strong>
+                    <span>Quais serviços cada profissional executa.</span>
+                    <i>↗</i>
+                </button>
+
+                <button onclick="showProfessionalHoursConfig()">
+                    <b>04</b>
+                    <strong>EXPEDIENTE</strong>
+                    <span>Jornada semanal por profissional.</span>
+                    <i>↗</i>
+                </button>
+
                 ${appState.userRole === 'OWNER' ? `
-                    <button class="button button-primary" onclick="showCommissionRulesConfig()">Comissões</button>
-                    <button class="button button-primary" onclick="showBookingPoliciesConfig()">Política de agendamento</button>
+                    <button onclick="showCommissionRulesConfig()">
+                        <b>05</b>
+                        <strong>COMISSÕES</strong>
+                        <span>Percentuais e base de cálculo.</span>
+                        <i>↗</i>
+                    </button>
+
+                    <button onclick="showBookingPoliciesConfig()">
+                        <b>06</b>
+                        <strong>AGENDAMENTO</strong>
+                        <span>Políticas e controles do canal público.</span>
+                        <i>↗</i>
+                    </button>
                 ` : ''}
-            </div>
-            <div id="config-content">
-                <div class="card">
-                    <p>Selecione uma opção acima para gerenciar.</p>
+            </section>
+
+            <div id="config-content" class="config-content-pro">
+                <div class="config-placeholder">
+                    <span>SELECIONE UM MÓDULO</span>
+                    <strong>As configurações aparecem aqui.</strong>
                 </div>
             </div>
         </div>
