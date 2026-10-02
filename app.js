@@ -273,7 +273,7 @@ async function checkSession() {
     }
 }
 
-async function loadWorkspaceData(allowRefresh = true) {
+async function performWorkspaceLoad(allowRefresh = true) {
     try {
         if (!appState.currentSession) {
             appState.workspaceData = null;
@@ -294,7 +294,7 @@ async function loadWorkspaceData(allowRefresh = true) {
             if (!error && data?.session) {
                 appState.currentSession = data.session;
                 appState.currentUser = data.session.user;
-                return loadWorkspaceData(false);
+                return performWorkspaceLoad(false);
             }
         }
 
@@ -320,6 +320,23 @@ async function loadWorkspaceData(allowRefresh = true) {
         appState.userRole = null;
         updateNavigationByRole();
         return false;
+    }
+}
+
+
+let workspaceLoadPromise = null;
+
+async function loadWorkspaceData(allowRefresh = true) {
+    if (workspaceLoadPromise) {
+        return workspaceLoadPromise;
+    }
+
+    workspaceLoadPromise = performWorkspaceLoad(allowRefresh);
+
+    try {
+        return await workspaceLoadPromise;
+    } finally {
+        workspaceLoadPromise = null;
     }
 }
 
@@ -899,17 +916,17 @@ async function renderBookingManagement(booking) {
 
                 <div class="button-group" style="margin-top: 1.5rem;">
                     ${policy?.allow_public_cancel ? `
-                        <button class="button button-danger" onclick="cancelPublicBooking('${booking.appointment_id}', '${booking.management_token}', '${booking.tenant}')">
+                        <button class="button button-danger" data-kira-action="cancelPublicBooking('${booking.appointment_id}', '${booking.management_token}', '${booking.tenant}')">
                             Cancelar
                         </button>
                     ` : ''}
                     ${policy?.allow_public_reschedule ? `
-                        <button class="button button-secondary" onclick="showRescheduleForm('${booking.appointment_id}', '${booking.management_token}', '${booking.tenant}', '${appt.service.id}', '${appt.professional.id}')">
+                        <button class="button button-secondary" data-kira-action="showRescheduleForm('${booking.appointment_id}', '${booking.management_token}', '${booking.tenant}', '${appt.service.id}', '${appt.professional.id}')">
                             Reagendar
                         </button>
                     ` : ''}
-                    <button class="button button-secondary" onclick="navigateTo('home')">Voltar</button>
-                    <button class="button button-secondary" onclick="forgetBookingThisDevice()" style="opacity: 0.7;">Esquecer neste dispositivo</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('home')">Voltar</button>
+                    <button class="button button-secondary" data-kira-action="forgetBookingThisDevice()" style="opacity: 0.7;">Esquecer neste dispositivo</button>
                 </div>
             </div>
         `;
@@ -919,7 +936,7 @@ async function renderBookingManagement(booking) {
         console.error('Booking management error:', error);
         content.querySelector('#booking-management-container').innerHTML = `
             <div class="alert alert-error">Erro ao carregar detalhes da reserva</div>
-            <button class="button button-secondary" onclick="navigateTo('home')" style="margin-top: 1rem;">Voltar</button>
+            <button class="button button-secondary" data-kira-action="navigateTo('home')" style="margin-top: 1rem;">Voltar</button>
         `;
     }
 }
@@ -979,10 +996,10 @@ function showRescheduleForm(appointmentId, token, tenant, serviceId, professiona
                 </div>
 
                 <div class="button-group" style="margin-top: 1.5rem;">
-                    <button class="button button-primary" onclick="submitReschedule('${appointmentId}', '${token}', '${tenant}')">
+                    <button class="button button-primary" data-kira-action="submitReschedule('${appointmentId}', '${token}', '${tenant}')">
                         Confirmar reagendamento
                     </button>
-                    <button class="button button-secondary" onclick="navigateTo('agendamento')">
+                    <button class="button button-secondary" data-kira-action="navigateTo('agendamento')">
                         Voltar
                     </button>
                 </div>
@@ -1669,7 +1686,7 @@ function renderPasswordUpdateForm() {
                 <div class="card" style="max-width:400px; margin:2rem auto;">
                     <div class="card-title">Link de recuperação inválido ou expirado</div>
                     <p style="color:#666; margin-bottom:1rem;">Solicite um novo link de recuperação.</p>
-                    <button class="button button-primary" onclick="showPasswordResetRequestForm()" style="width:100%;">Solicitar novo link</button>
+                    <button class="button button-primary" data-kira-action="showPasswordResetRequestForm()" style="width:100%;">Solicitar novo link</button>
                 </div>
             </div>
         `;
@@ -1878,14 +1895,14 @@ async function renderSchedulePage() {
             if (appt.appointment_id && ['BOOKED', 'CONFIRMED'].includes(appt.state)) {
                 actions = `
                     <button class="button button-primary compact-action"
-                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE', this)">Iniciar</button>
+                        data-kira-action="updateAppointmentStatus('${appt.appointment_id}', 'IN_SERVICE', this)">Iniciar</button>
                     <button class="button button-secondary compact-action"
-                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW', this)">Faltou</button>
+                        data-kira-action="updateAppointmentStatus('${appt.appointment_id}', 'NO_SHOW', this)">Faltou</button>
                 `;
             } else if (appt.appointment_id && appt.state === 'IN_SERVICE') {
                 actions = `
                     <button class="button button-primary compact-action"
-                        onclick="updateAppointmentStatus('${appt.appointment_id}', 'COMPLETED', this)">Concluir</button>
+                        data-kira-action="updateAppointmentStatus('${appt.appointment_id}', 'COMPLETED', this)">Concluir</button>
                 `;
             }
 
@@ -2270,11 +2287,11 @@ async function renderFinancialPage() {
 
                     <div class="button-group">
                         <button class="button button-secondary"
-                            onclick="openCashAdjustmentDialog('${openCashSession.cash_session_id}')">
+                            data-kira-action="openCashAdjustmentDialog('${openCashSession.cash_session_id}')">
                             Movimento de caixa
                         </button>
                         <button class="button button-danger"
-                            onclick="openCloseCashDialog('${openCashSession.cash_session_id}')">
+                            data-kira-action="openCloseCashDialog('${openCashSession.cash_session_id}')">
                             Fechar caixa
                         </button>
                     </div>
@@ -2293,7 +2310,7 @@ async function renderFinancialPage() {
                         </div>
                         <span class="badge badge-warning">FECHADO</span>
                     </div>
-                    <button class="button button-primary" onclick="openCashDialog()">Abrir caixa</button>
+                    <button class="button button-primary" data-kira-action="openCashDialog()">Abrir caixa</button>
                 </div>
             `;
         }
@@ -2337,7 +2354,7 @@ async function renderFinancialPage() {
                                                             </div>
                                                             ${canRefund ? `
                                                                 <button class="button button-secondary compact-action"
-                                                                    onclick="openRefundDialog('${receipt.id}', ${refundable}, '${sanitizeText(receipt.method || '')}')">
+                                                                    data-kira-action="openRefundDialog('${receipt.id}', ${refundable}, '${sanitizeText(receipt.method || '')}')">
                                                                     Devolver
                                                                 </button>
                                                             ` : ''}
@@ -2357,7 +2374,7 @@ async function renderFinancialPage() {
                                             <td>
                                                 ${Number(order.balance_cents || 0) > 0 ? `
                                                     <button class="button button-primary compact-action"
-                                                        onclick="openCheckoutDialog('${order.appointment_id}', ${Number(order.balance_cents || 0)})">
+                                                        data-kira-action="openCheckoutDialog('${order.appointment_id}', ${Number(order.balance_cents || 0)})">
                                                         Receber
                                                     </button>
                                                 ` : '<span class="badge badge-success">QUITADO</span>'}
@@ -2402,7 +2419,7 @@ async function renderFinancialPage() {
                                             <td>
                                                 ${appState.userRole === 'OWNER' && payable > 0 ? `
                                                     <button class="button button-secondary compact-action"
-                                                        onclick="openCommissionPayoutDialog(
+                                                        data-kira-action="openCommissionPayoutDialog(
                                                             '${c.professional_id}',
                                                             '${sanitizeText(c.display_name || 'Profissional')}',
                                                             ${payable}
@@ -2488,8 +2505,8 @@ function openCashDialog() {
                 </div>
 
                 <div class="button-group">
-                    <button class="button button-primary" id="open-cash-submit" onclick="submitOpenCash()">Abrir</button>
-                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                    <button class="button button-primary" id="open-cash-submit" data-kira-action="submitOpenCash()">Abrir</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -2552,8 +2569,8 @@ function openCloseCashDialog(cashSessionId) {
                 </div>
 
                 <div class="button-group">
-                    <button class="button button-primary" id="close-cash-submit" onclick="submitCloseCash('${cashSessionId}')">Fechar</button>
-                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                    <button class="button button-primary" id="close-cash-submit" data-kira-action="submitCloseCash('${cashSessionId}')">Fechar</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -2653,8 +2670,8 @@ function openCheckoutDialog(appointmentId, balanceCents) {
                 </div>
 
                 <div class="button-group">
-                    <button class="button button-primary" id="checkout-submit" onclick="submitCheckout('${appointmentId}')">Registrar pagamento</button>
-                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                    <button class="button button-primary" id="checkout-submit" data-kira-action="submitCheckout('${appointmentId}')">Registrar pagamento</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -2789,8 +2806,8 @@ function openCashAdjustmentDialog(cashSessionId) {
                 </div>
                 <div class="button-group">
                     <button class="button button-primary" id="cash-adjustment-submit"
-                        onclick="submitCashAdjustment('${cashSessionId}')">Registrar</button>
-                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                        data-kira-action="submitCashAdjustment('${cashSessionId}')">Registrar</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -2887,10 +2904,10 @@ function openRefundDialog(receiptId, refundableCents, method) {
                 <div class="button-group">
                     <button class="button button-primary" id="refund-submit"
                         ${cashBlocked ? 'disabled' : ''}
-                        onclick="submitRefund('${receiptId}', ${Number(refundableCents || 0)}, '${method}')">
+                        data-kira-action="submitRefund('${receiptId}', ${Number(refundableCents || 0)}, '${method}')">
                         Confirmar devolução
                     </button>
-                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -3003,10 +3020,10 @@ function openCommissionPayoutDialog(professionalId, displayName, payableCents) {
 
                 <div class="button-group">
                     <button class="button button-primary" id="payout-submit"
-                        onclick="submitCommissionPayout('${professionalId}', ${Number(payableCents || 0)})">
+                        data-kira-action="submitCommissionPayout('${professionalId}', ${Number(payableCents || 0)})">
                         Registrar repasse
                     </button>
-                    <button class="button button-secondary" onclick="navigateTo('financeiro')">Cancelar</button>
+                    <button class="button button-secondary" data-kira-action="navigateTo('financeiro')">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -3344,28 +3361,28 @@ async function renderConfigurationPage() {
             </section>
 
             <section class="config-module-grid">
-                <button onclick="showServicesConfig()">
+                <button data-kira-action="showServicesConfig()">
                     <b>01</b>
                     <strong>SERVIÇOS</strong>
                     <span>Preço, duração, buffer e disponibilidade.</span>
                     <i>↗</i>
                 </button>
 
-                <button onclick="showProfessionalsConfig()">
+                <button data-kira-action="showProfessionalsConfig()">
                     <b>02</b>
                     <strong>PROFISSIONAIS</strong>
                     <span>Equipe ativa e perfis de atendimento.</span>
                     <i>↗</i>
                 </button>
 
-                <button onclick="showProfessionalServicesConfig()">
+                <button data-kira-action="showProfessionalServicesConfig()">
                     <b>03</b>
                     <strong>VÍNCULOS</strong>
                     <span>Quais serviços cada profissional executa.</span>
                     <i>↗</i>
                 </button>
 
-                <button onclick="showProfessionalHoursConfig()">
+                <button data-kira-action="showProfessionalHoursConfig()">
                     <b>04</b>
                     <strong>EXPEDIENTE</strong>
                     <span>Jornada semanal por profissional.</span>
@@ -3373,14 +3390,14 @@ async function renderConfigurationPage() {
                 </button>
 
                 ${appState.userRole === 'OWNER' ? `
-                    <button onclick="showCommissionRulesConfig()">
+                    <button data-kira-action="showCommissionRulesConfig()">
                         <b>05</b>
                         <strong>COMISSÕES</strong>
                         <span>Percentuais e base de cálculo.</span>
                         <i>↗</i>
                     </button>
 
-                    <button onclick="showBookingPoliciesConfig()">
+                    <button data-kira-action="showBookingPoliciesConfig()">
                         <b>06</b>
                         <strong>AGENDAMENTO</strong>
                         <span>Políticas e controles do canal público.</span>
@@ -3479,7 +3496,7 @@ async function showServicesConfig() {
 
                     <button
                         class="button button-primary"
-                        onclick="showServiceForm()"
+                        data-kira-action="showServiceForm()"
                     >
                         Adicionar serviço
                     </button>
@@ -3519,7 +3536,7 @@ async function showServicesConfig() {
                                             <div class="config-row-actions">
                                                 <button
                                                     class="button button-secondary compact-action"
-                                                    onclick="showServiceForm('${s.id}')"
+                                                    data-kira-action="showServiceForm('${s.id}')"
                                                 >
                                                     Editar
                                                 </button>
@@ -3527,7 +3544,7 @@ async function showServicesConfig() {
                                                 ${appState.userRole === 'OWNER' ? `
                                                     <button
                                                         class="button config-danger-action compact-action"
-                                                        onclick="deleteServiceConfig('${s.id}')"
+                                                        data-kira-action="deleteServiceConfig('${s.id}')"
                                                     >
                                                         Excluir
                                                     </button>
@@ -3682,14 +3699,14 @@ async function showServiceForm(serviceId = null) {
                 <button
                     class="button button-primary"
                     id="service-save-submit"
-                    onclick="submitServiceForm()"
+                    data-kira-action="submitServiceForm()"
                 >
                     ${service ? 'Salvar alterações' : 'Criar serviço'}
                 </button>
 
                 <button
                     class="button button-secondary"
-                    onclick="showServicesConfig()"
+                    data-kira-action="showServicesConfig()"
                 >
                     Cancelar
                 </button>
@@ -3931,7 +3948,7 @@ async function showProfessionalsConfig() {
                         </p>
                     </div>
 
-                    <button class="button button-primary" onclick="showProfessionalForm()">
+                    <button class="button button-primary" data-kira-action="showProfessionalForm()">
                         Adicionar profissional
                     </button>
                 </div>
@@ -3962,7 +3979,7 @@ async function showProfessionalsConfig() {
                                             <div class="config-row-actions">
                                                 <button
                                                     class="button button-secondary compact-action"
-                                                    onclick="showProfessionalForm('${p.id}')"
+                                                    data-kira-action="showProfessionalForm('${p.id}')"
                                                 >
                                                     Editar
                                                 </button>
@@ -3970,7 +3987,7 @@ async function showProfessionalsConfig() {
                                                 ${appState.userRole === 'OWNER' ? `
                                                     <button
                                                         class="button config-danger-action compact-action"
-                                                        onclick="deleteProfessionalConfig('${p.id}')"
+                                                        data-kira-action="deleteProfessionalConfig('${p.id}')"
                                                     >
                                                         Excluir
                                                     </button>
@@ -4014,14 +4031,14 @@ async function showProfessionalsConfig() {
                                                 <div class="config-row-actions">
                                                     <button
                                                         class="button button-secondary compact-action"
-                                                        onclick="restoreProfessionalConfig('${p.id}')"
+                                                        data-kira-action="restoreProfessionalConfig('${p.id}')"
                                                     >
                                                         Restaurar
                                                     </button>
 
                                                     <button
                                                         class="button button-secondary compact-action"
-                                                        onclick="showProfessionalForm('${p.id}')"
+                                                        data-kira-action="showProfessionalForm('${p.id}')"
                                                     >
                                                         Editar
                                                     </button>
@@ -4138,14 +4155,14 @@ async function showProfessionalForm(professionalId = null) {
                 <button
                     class="button button-primary"
                     id="professional-save-submit"
-                    onclick="submitProfessionalForm()"
+                    data-kira-action="submitProfessionalForm()"
                 >
                     ${professional ? 'Salvar alterações' : 'Criar profissional'}
                 </button>
 
                 <button
                     class="button button-secondary"
-                    onclick="showProfessionalsConfig()"
+                    data-kira-action="showProfessionalsConfig()"
                 >
                     Cancelar
                 </button>
@@ -4456,7 +4473,7 @@ async function showProfessionalServicesConfig() {
 
                                         <button
                                             class="button button-secondary compact-action"
-                                            onclick="showProfessionalServiceManager('${professional.id}')"
+                                            data-kira-action="showProfessionalServiceManager('${professional.id}')"
                                         >
                                             Gerenciar serviços
                                         </button>
@@ -4586,14 +4603,14 @@ async function showProfessionalServiceManager(professionalId) {
                     <button
                         class="button button-primary"
                         id="professional-services-save"
-                        onclick="submitProfessionalServiceManager('${professional.id}')"
+                        data-kira-action="submitProfessionalServiceManager('${professional.id}')"
                     >
                         Salvar vínculos
                     </button>
 
                     <button
                         class="button button-secondary"
-                        onclick="showProfessionalServicesConfig()"
+                        data-kira-action="showProfessionalServicesConfig()"
                     >
                         Cancelar
                     </button>
@@ -4788,7 +4805,7 @@ async function showProfessionalHoursConfig() {
 
                                     <button
                                         class="button button-secondary compact-action"
-                                        onclick="showProfessionalHoursEditor('${professional.id}')"
+                                        data-kira-action="showProfessionalHoursEditor('${professional.id}')"
                                     >
                                         Editar semana
                                     </button>
@@ -4956,14 +4973,14 @@ async function showProfessionalHoursEditor(professionalId) {
                     <button
                         class="button button-primary"
                         id="professional-hours-save"
-                        onclick="submitProfessionalHoursWeek('${professional.id}')"
+                        data-kira-action="submitProfessionalHoursWeek('${professional.id}')"
                     >
                         Salvar semana
                     </button>
 
                     <button
                         class="button button-secondary"
-                        onclick="showProfessionalHoursConfig()"
+                        data-kira-action="showProfessionalHoursConfig()"
                     >
                         Cancelar
                     </button>
@@ -5191,7 +5208,7 @@ async function showCommissionRulesConfig() {
                                     <div class="config-row-actions">
                                         <button
                                             class="button button-secondary compact-action"
-                                            onclick="showCommissionRuleForm('${professional.id}')"
+                                            data-kira-action="showCommissionRuleForm('${professional.id}')"
                                         >
                                             ${rule ? 'Editar' : 'Configurar'}
                                         </button>
@@ -5341,14 +5358,14 @@ async function showCommissionRuleForm(professionalId) {
                     <button
                         class="button button-primary"
                         id="commission-save-submit"
-                        onclick="submitCommissionRule('${professional.id}')"
+                        data-kira-action="submitCommissionRule('${professional.id}')"
                     >
                         Salvar regra
                     </button>
 
                     <button
                         class="button button-secondary"
-                        onclick="showCommissionRulesConfig()"
+                        data-kira-action="showCommissionRulesConfig()"
                     >
                         Cancelar
                     </button>
@@ -5694,14 +5711,14 @@ async function showBookingPoliciesConfig() {
                     <button
                         class="button button-primary"
                         id="booking-policy-save"
-                        onclick="submitBookingPolicy()"
+                        data-kira-action="submitBookingPolicy()"
                     >
                         Salvar política
                     </button>
 
                     <button
                         class="button button-secondary"
-                        onclick="renderConfigurationPage()"
+                        data-kira-action="renderConfigurationPage()"
                     >
                         Cancelar
                     </button>
@@ -5967,3 +5984,189 @@ function setupSecureMobileSidebar() {
 }
 
 document.addEventListener('DOMContentLoaded', setupSecureMobileSidebar);
+
+// KIRA_RUNTIME_ACTIONS_PERF_V24
+const KIRA_ACTION_HANDLERS = Object.freeze({
+    cancelPublicBooking,
+    deleteProfessionalConfig,
+    deleteServiceConfig,
+    forgetBookingThisDevice,
+    navigateTo,
+    openCashAdjustmentDialog,
+    openCashDialog,
+    openCheckoutDialog,
+    openCloseCashDialog,
+    openCommissionPayoutDialog,
+    openRefundDialog,
+    renderConfigurationPage,
+    restoreProfessionalConfig,
+    showBookingPoliciesConfig,
+    showCommissionRuleForm,
+    showCommissionRulesConfig,
+    showPasswordResetRequestForm,
+    showProfessionalForm,
+    showProfessionalHoursConfig,
+    showProfessionalHoursEditor,
+    showProfessionalServiceManager,
+    showProfessionalServicesConfig,
+    showProfessionalsConfig,
+    showRescheduleForm,
+    showServiceForm,
+    showServicesConfig,
+    submitBookingPolicy,
+    submitCashAdjustment,
+    submitCheckout,
+    submitCloseCash,
+    submitCommissionPayout,
+    submitCommissionRule,
+    submitOpenCash,
+    submitProfessionalForm,
+    submitProfessionalHoursWeek,
+    submitProfessionalServiceManager,
+    submitRefund,
+    submitReschedule,
+    submitServiceForm,
+    updateAppointmentStatus
+});
+
+function decodeKiraActionString(value) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = value;
+    return textarea.value;
+}
+
+function parseKiraActionArgs(source, element) {
+    const text = String(source || '').trim();
+
+    if (!text) return [];
+
+    const parts = [];
+    let current = '';
+    let quote = null;
+    let escaped = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+
+        if (escaped) {
+            current += char;
+            escaped = false;
+            continue;
+        }
+
+        if (char === '\\') {
+            current += char;
+            escaped = true;
+            continue;
+        }
+
+        if (quote) {
+            current += char;
+
+            if (char === quote) {
+                quote = null;
+            }
+
+            continue;
+        }
+
+        if (char === "'" || char === '"') {
+            quote = char;
+            current += char;
+            continue;
+        }
+
+        if (char === ',') {
+            parts.push(current.trim());
+            current = '';
+            continue;
+        }
+
+        current += char;
+    }
+
+    if (quote) {
+        throw new Error('Ação inválida: string não finalizada.');
+    }
+
+    if (current.trim() || text.endsWith(',')) {
+        parts.push(current.trim());
+    }
+
+    return parts.map((part) => {
+        if (part === 'this') return element;
+        if (part === 'true') return true;
+        if (part === 'false') return false;
+        if (part === 'null') return null;
+
+        if (/^-?\d+(?:\.\d+)?$/.test(part)) {
+            return Number(part);
+        }
+
+        const first = part[0];
+        const last = part[part.length - 1];
+
+        if (
+            (first === "'" && last === "'") ||
+            (first === '"' && last === '"')
+        ) {
+            const body = part
+                .slice(1, -1)
+                .replace(/\\'/g, "'")
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+
+            return decodeKiraActionString(body);
+        }
+
+        throw new Error('Argumento de ação não permitido.');
+    });
+}
+
+function setupKiraActionBridge() {
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element
+            ? event.target.closest('[data-kira-action]')
+            : null;
+
+        if (!target || target.disabled) return;
+
+        const expression = target.getAttribute('data-kira-action') || '';
+        const match = expression.match(
+            /^\s*([A-Za-z_$][\w$]*)\s*\(([\s\S]*)\)\s*;?\s*$/
+        );
+
+        if (!match) {
+            console.error('Ação inválida bloqueada:', expression);
+            return;
+        }
+
+        const [, actionName, argsSource] = match;
+        const handler = KIRA_ACTION_HANDLERS[actionName];
+
+        if (typeof handler !== 'function') {
+            console.error('Ação não autorizada bloqueada:', actionName);
+            return;
+        }
+
+        event.preventDefault();
+
+        try {
+            const args = parseKiraActionArgs(argsSource, target);
+            const result = handler(...args);
+
+            if (result && typeof result.catch === 'function') {
+                result.catch((error) => {
+                    console.error('Erro na ação:', actionName, error);
+                    showAlert('Não foi possível concluir esta ação.', 'error');
+                });
+            }
+        } catch (error) {
+            console.error('Erro ao interpretar ação:', actionName, error);
+            showAlert('Não foi possível concluir esta ação.', 'error');
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', setupKiraActionBridge);
+

@@ -811,7 +811,7 @@ tbody tr:hover { background:#181818; }
 /* ==========================================================
    Brooklyn Editorial V3
    ========================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+/* KIRA_RUNTIME_ACTIONS_PERF_V24: Google Fonts moved to index.html */
 
 :root {
     --bb-ink:#070706;
