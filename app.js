@@ -2088,7 +2088,15 @@ async function updateAppointmentStatus(appointmentId, newState, triggerButton = 
             'success'
         );
 
-        await renderSchedulePage();
+        // KIRA_APPOINTMENT_CHECKOUT_V24_3
+        if (
+            newState === 'COMPLETED' &&
+            ['OWNER', 'RECEPTION'].includes(appState.userRole)
+        ) {
+            navigateTo('financeiro');
+        } else {
+            await renderSchedulePage();
+        }
     } catch (error) {
         console.error('Status update error:', error);
 
@@ -2223,11 +2231,12 @@ async function renderFinancialPage() {
     `;
 
     try {
-        if (!appState.workspaceData) {
-            await loadWorkspaceData();
+        const loaded = await loadWorkspaceData();
+        if (!loaded || !appState.workspaceData) {
+            throw new Error('Não foi possível carregar os dados atualizados do financeiro.');
         }
 
-        const financial = appState.workspaceData?.financial || {};
+        const financial = appState.workspaceData.financial || {};
         const agenda = appState.workspaceData?.agenda || [];
         const orders = financial.orders || [];
         const cash = financial.cash || [];
