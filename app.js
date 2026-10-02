@@ -1,3 +1,11 @@
+// KIRA_DEMO_MANAGEMENT_V24_9
+function getInternalApiUrl(mode = null) {
+    const url = new URL(INTERNAL_ENDPOINT);
+    url.searchParams.set('tenant', isExplicitBookingDemo() ? 'demo' : 'live');
+    if (mode) url.searchParams.set('mode', mode);
+    return url.toString();
+}
+
 // KIRA_BOOKING_STATUS_V24_8
 // KIRA_BOOKING_PRESENTATION_V24_7
 // KIRA_ACCOUNT_LOGOUT_V24_5
@@ -298,7 +306,7 @@ async function performWorkspaceLoad(allowRefresh = true) {
         }
 
         const requestedAccessToken = appState.currentSession.access_token;
-        const response = await fetch(`${INTERNAL_ENDPOINT}?mode=workspace`, {
+        const response = await fetch(getInternalApiUrl('workspace'), {
             headers: {
                 'Authorization': `Bearer ${appState.currentSession.access_token}`,
                 'apikey': appState.supabaseConfig.key
@@ -1983,8 +1991,11 @@ async function renderSchedulePage() {
     `;
 
     try {
-        if (!appState.workspaceData) {
-            await loadWorkspaceData();
+        const loaded = await loadWorkspaceData();
+        if (appState.currentPage !== 'agenda' || !appState.currentUser) return;
+        if (!loaded || !appState.userRole) {
+            navigateTo('acesso-interno');
+            return;
         }
 
         const agenda = [...(appState.workspaceData?.agenda || [])]
@@ -2140,7 +2151,7 @@ async function updateAppointmentStatus(appointmentId, newState, triggerButton = 
     }
 
     const sendRequest = async () => {
-        return fetch(INTERNAL_ENDPOINT, {
+        return fetch(getInternalApiUrl(), {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${appState.currentSession.access_token}`,
@@ -2253,7 +2264,7 @@ async function postFinancialAction(body) {
         throw new Error('Sua sessão não está ativa. Entre novamente.');
     }
 
-    const send = () => fetch(INTERNAL_ENDPOINT, {
+    const send = () => fetch(getInternalApiUrl(), {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${appState.currentSession.access_token}`,
@@ -5996,7 +6007,9 @@ async function submitBookingPolicy() {
 
 function updateTopbar(title, status) {
     document.querySelector('.topbar-title').textContent = title;
-    document.querySelector('.topbar-status').textContent = status;
+    document.querySelector('.topbar-status').textContent = isExplicitBookingDemo()
+        ? `MODO DEMONSTRAÇÃO · ${status}`
+        : status;
 }
 
 function showAlert(message, type = 'info') {
